@@ -227,7 +227,6 @@ function dibujarApoyos() {
 
 function calcularYDibujarCalculos() {
     let anchoUtil = width - 2 * margenH;
-    // --- ESTÁTICA REAL ---
     let xA_m = apoyos[0].x_rel * vigaLongitudM;
     let xB_m = apoyos[1].x_rel * vigaLongitudM;
     let distApoyos = xB_m - xA_m;
@@ -237,8 +236,9 @@ function calcularYDibujarCalculos() {
     let sumFy = 0, sumM_A = 0, sumFx = 0;
     
     cargas.forEach(c => { 
-        let fy = c.f * sin(radians(c.ang)); 
-        let fx = c.f * cos(radians(c.ang));
+        let rad = radians(360 - c.ang);
+        let fy = c.f * sin(rad); 
+        let fx = c.f * cos(rad);
         let pos_m = c.x_rel * vigaLongitudM;
         sumFy += fy; sumFx += fx;
         sumM_A += fy * (pos_m - xA_m); 
@@ -262,27 +262,17 @@ function calcularYDibujarCalculos() {
     fill(255, 235); stroke(180); strokeWeight(1);
     // Apoyo A
     let modA = ra_fix ? sqrt(sq(Ray) + sq(Rax)) : abs(Ray);
-    let angA = ra_fix ? degrees(atan2(Ray, -Rax)) : (Ray >= 0 ? 90 : 270);
-    if(angA < 0) angA += 360;
     rect(xA_px - 45, vigaY + 35, 90, 50, 5); 
     fill('#27ae60'); noStroke();
-    let txtA = `Ray: ${Ray.toFixed(1)}N`;
-    if(ra_fix) txtA += `\nRax: ${Rax.toFixed(1)}N\nRa: ${modA.toFixed(1)}N | ${angA.toFixed(1)}°`;
-    text(txtA, xA_px, vigaY + 48);
+    text(`Ray: ${Ray.toFixed(1)}N\n${ra_fix ? 'Rax: '+Rax.toFixed(1)+'N' : ''}`, xA_px, vigaY + 52);
     dibujarFlechaResultante(xA_px, Ray, ra_fix ? Rax : 0);
 
     // Apoyo B
-    let rb_fix = apoyos[1].tipo === 'fijo';
-    let modB = rb_fix ? sqrt(sq(Rby) + sq(Rax)) : abs(Rby);
-    let angB = rb_fix ? degrees(atan2(Rby, -Rax)) : (Rby >= 0 ? 90 : 270);
-    if(angB < 0) angB += 360;
     fill(255, 235); stroke(180); strokeWeight(1);
     rect(xB_px - 45, vigaY + 35, 90, 50, 5); 
     fill('#27ae60'); noStroke();
-    let txtB = `Rby: ${Rby.toFixed(1)}N`;
-    if(rb_fix) txtB += `\nRax: ${Rax.toFixed(1)}N\nRb: ${modB.toFixed(1)}N | ${angB.toFixed(1)}°`;
-    text(txtB, xB_px, vigaY + 48);
-    dibujarFlechaResultante(xB_px, Rby, rb_fix ? Rax : 0);
+    text(`Rby: ${Rby.toFixed(1)}N`, xB_px, vigaY + 52);
+    dibujarFlechaResultante(xB_px, Rby, 0);
 
     drawAxial(Rax, xA_px, xB_px);
     let cortanteVals = drawCortante(Ray, Rby, xA_px, xB_px); 
@@ -307,7 +297,11 @@ function drawAxial(Rax, xA, xB) {
     let vals = []; let xFijo = (apoyos[0].tipo === 'fijo') ? xA : xB;
     for (let x = margenH; x <= width - margenH; x += 2) {
         let axial = 0; if (x > xFijo) axial += Rax;
-        cargas.forEach(c => { if (x > margenH + c.x_rel * anchoUtil) axial += c.f * cos(radians(c.ang)); });
+        cargas.forEach(c => { 
+            if (x > margenH + c.x_rel * anchoUtil) {
+                axial += c.f * cos(radians(360 - c.ang)); 
+            }
+        });
         vals.push(axial);
     }
     dibujarDiagrama(baseline, vals, "Axial (N)", '#2ecc71', false);
@@ -318,7 +312,11 @@ function drawCortante(Ray, Rby, xA, xB) {
     let vals = [];
     for (let x = margenH; x <= width - margenH; x += 2) {
         let v = 0; if (x > xA) v += Ray; if (x > xB) v += Rby;
-        cargas.forEach(c => { if (x > margenH + c.x_rel * anchoUtil) v -= c.f * sin(radians(c.ang)); });
+        cargas.forEach(c => { 
+            if (x > margenH + c.x_rel * anchoUtil) {
+                v -= c.f * sin(radians(360 - c.ang)); 
+            }
+        });
         distribuidas.forEach(d => {
             let xd1 = margenH + d.x1 * anchoUtil, xd2 = margenH + d.x2 * anchoUtil;
             if (x > xd1) { v -= (d.f * (min(x, xd2) - xd1) / (xd2 - xd1) * d.dir); }
@@ -342,7 +340,9 @@ function drawMomento(Ray, Rby, xA, xB, vVals) {
         if (pos_m > xB_m) m += Rby * (pos_m - xB_m);
         cargas.forEach(c => { 
             let cx_m = c.x_rel * vigaLongitudM;
-            if (pos_m > cx_m) m -= (c.f * sin(radians(c.ang))) * (pos_m - cx_m); 
+            if (pos_m > cx_m) {
+                m -= (c.f * sin(radians(360 - c.ang))) * (pos_m - cx_m); 
+            }
         });
         distribuidas.forEach(d => {
             let d1_m = d.x1 * vigaLongitudM;
@@ -363,7 +363,7 @@ function drawMomento(Ray, Rby, xA, xB, vVals) {
         }
     }
     
-    dibujarDiagrama(baselineM, vals, "Momento (M-Nm)", '#e74c3c', true, extraPoints);
+    dibujarDiagrama(baselineM, vals, "Momento (Nm)", '#e74c3c', true, extraPoints);
 }
 
 function dibujarDiagrama(yBase, datos, titulo, col, esMomento, extraX = []) {
