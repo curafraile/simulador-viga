@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#3498db">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Simulador Viga Pro - Final Completo</title>
+    <title>Simulador Viga Pro - Reacciones Angulares</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #f0f0f0; touch-action: auto; font-family: sans-serif; }
@@ -253,27 +253,59 @@ function calcularYDibujarCalculos() {
     let Ra = sumFy - Rb;
     let Rax = -sumFx; 
 
-    // --- Estilo de texto de Reacciones corregido ---
-    noStroke(); textAlign(CENTER); textSize(14);
+    noStroke(); textAlign(CENTER); textSize(13);
     
-    // Ra
-    fill(255, 220); rect(xA - 30, vigaY + (apoyos[0].lado * 35), 60, 20); // Fondo para legibilidad
-    fill('#27ae60'); text(`Ra: ${abs(Ra).toFixed(1)}N`, xA, vigaY + (apoyos[0].lado * 50));
+    // --- Cálculo de Resultante y Ángulo para Apoyo A ---
+    let ra_is_fixed = apoyos[0].tipo === 'fijo';
+    let rb_is_fixed = apoyos[1].tipo === 'fijo';
     
-    // Rb
-    fill(255, 220); rect(xB - 30, vigaY + (apoyos[1].lado * 35), 60, 20); 
-    fill('#27ae60'); text(`Rb: ${abs(Rb).toFixed(1)}N`, xB, vigaY + (apoyos[1].lado * 50));
+    // Reacción A
+    let RtotalA = ra_is_fixed ? sqrt(sq(Ra) + sq(Rax)) : abs(Ra);
+    let angA = ra_is_fixed ? degrees(atan2(-Ra, -Rax)) : (Ra >= 0 ? 90 : 270);
+    if(angA < 0) angA += 360;
     
-    // Rax
-    if(abs(Rax) > 0.1) {
-        let xRax = (apoyos[0].tipo === 'fijo') ? xA - 50 : xB + 50;
-        fill(255, 220); rect(xRax - 30, vigaY - 10, 60, 20);
-        fill('#27ae60'); text(`Rax: ${Rax.toFixed(1)}N`, xRax, vigaY + 5);
-    }
+    fill(255, 220); rect(xA - 35, vigaY + (apoyos[0].lado * 35), 70, 30); 
+    fill('#27ae60'); 
+    let txtA = `Ra: ${RtotalA.toFixed(1)}N`;
+    if(ra_is_fixed && abs(Rax) > 0.1) txtA += `\n${angA.toFixed(1)}°`;
+    text(txtA, xA, vigaY + (apoyos[0].lado * 48));
+    dibujarVectorInclinado(xA, RtotalA, angA);
+
+    // Reacción B
+    let RtotalB = rb_is_fixed ? sqrt(sq(Rb) + sq(Rax)) : abs(Rb);
+    let angB = rb_is_fixed ? degrees(atan2(-Rb, -Rax)) : (Rb >= 0 ? 90 : 270);
+    if(angB < 0) angB += 360;
+
+    fill(255, 220); rect(xB - 35, vigaY + (apoyos[1].lado * 35), 70, 30); 
+    fill('#27ae60'); 
+    let txtB = `Rb: ${RtotalB.toFixed(1)}N`;
+    if(rb_is_fixed && abs(Rax) > 0.1) txtB += `\n${angB.toFixed(1)}°`;
+    text(txtB, xB, vigaY + (apoyos[1].lado * 48));
+    dibujarVectorInclinado(xB, RtotalB, angB);
 
     drawAxial(Rax, xA, xB);
     drawCortante(Ra, Rb, xA, xB); 
     drawMomento(Ra, Rb, xA, xB);
+}
+
+function dibujarVectorInclinado(x, modulo, angulo) {
+    if (modulo < 0.1) return;
+    let largoFlecha = 45;
+    let rad = radians(angulo);
+    
+    // El vector nace del apoyo y apunta hacia afuera (acción de la reacción)
+    let xFin = x + largoFlecha * cos(rad);
+    let yFin = vigaY - largoFlecha * sin(rad); 
+    
+    stroke('#27ae60'); strokeWeight(3);
+    line(x, vigaY, xFin, yFin);
+    
+    push();
+    translate(xFin, yFin);
+    rotate(-rad + HALF_PI); 
+    fill('#27ae60'); noStroke();
+    triangle(0, 0, -5, 10, 5, 10);
+    pop();
 }
 
 function drawAxial(Rax, xA, xB) {
