@@ -56,7 +56,7 @@ function setup() {
 }
 
 function actualizarDimensiones() {
-    vigaY = height * 0.25; 
+    vigaY = height * 0.22; // Subida un poco para dar espacio abajo
     margenH = width * 0.1;
 }
 
@@ -261,8 +261,9 @@ function calcularYDibujarCalculos() {
     let angleA = ra_is_fixed ? degrees(atan2(Ray, -Rax)) : (Ray >= 0 ? 90 : 270);
     if(angleA < 0) angleA += 360;
 
-    fill(255, 220); rect(xA - 40, vigaY + (apoyos[0].lado * 35), 80, 45); 
-    fill('#27ae60'); 
+    fill(255, 235); stroke(100); strokeWeight(1);
+    rect(xA - 45, vigaY + (apoyos[0].lado * 35), 90, 50, 5); 
+    fill('#27ae60'); noStroke();
     let txtA = `Ray: ${Ray.toFixed(1)}N`;
     if(ra_is_fixed) txtA += `\nRax: ${Rax.toFixed(1)}N\nRa: ${moduleA.toFixed(1)}N | ${angleA.toFixed(1)}°`;
     text(txtA, xA, vigaY + (apoyos[0].lado * 48));
@@ -274,13 +275,15 @@ function calcularYDibujarCalculos() {
     let angleB = rb_is_fixed ? degrees(atan2(Rby, -Rax)) : (Rby >= 0 ? 90 : 270);
     if(angleB < 0) angleB += 360;
 
-    fill(255, 220); rect(xB - 40, vigaY + (apoyos[1].lado * 35), 80, 45); 
-    fill('#27ae60'); 
+    fill(255, 235); stroke(100); strokeWeight(1);
+    rect(xB - 45, vigaY + (apoyos[1].lado * 35), 90, 50, 5); 
+    fill('#27ae60'); noStroke();
     let txtB = `Rby: ${Rby.toFixed(1)}N`;
     if(rb_is_fixed) txtB += `\nRax: ${Rax.toFixed(1)}N\nRb: ${moduleB.toFixed(1)}N | ${angleB.toFixed(1)}°`;
     text(txtB, xB, vigaY + (apoyos[1].lado * 48));
     dibujarFlechaResultante(xB, Rby, rb_is_fixed ? Rax : 0);
 
+    // Separación física de gráficos para evitar superposición
     drawAxial(Rax, xA, xB);
     drawCortante(Ray, Rby, xA, xB); 
     drawMomento(Ray, Rby, xA, xB);
@@ -290,30 +293,22 @@ function dibujarFlechaResultante(x, ry, rx) {
     if (abs(ry) < 0.1 && abs(rx) < 0.1) return;
     let largo = 45;
     let ang = atan2(ry, -rx);
-    
-    // La flecha nace en el apoyo y apunta hacia la viga (reacción)
     let xFin = x;
     let yFin = vigaY;
     let xIni = x - largo * cos(ang);
     let yIni = vigaY + largo * sin(ang);
-
     stroke('#27ae60'); strokeWeight(3);
     line(xIni, yIni, xFin, yFin);
-    
-    push();
-    translate(xFin, yFin);
-    rotate(-ang + HALF_PI); 
-    fill('#27ae60'); noStroke();
-    triangle(0, 0, -5, 10, 5, 10);
+    push(); translate(xFin, yFin); rotate(-ang + HALF_PI); 
+    fill('#27ae60'); noStroke(); triangle(0, 0, -5, 10, 5, 10);
     pop();
 }
 
 function drawAxial(Rax, xA, xB) {
-    let baseline = vigaY + 140; let escala = 0.4; let anchoUtil = width - 2 * margenH;
-    fill(100, 200, 100, 30); stroke(0, 150, 0); strokeWeight(2);
-    beginShape();
+    let baseline = vigaY + 140; let anchoUtil = width - 2 * margenH;
+    let vals = [];
     let xFijo = (apoyos[0].tipo === 'fijo') ? xA : xB;
-    vertex(margenH, baseline);
+    
     for (let x = margenH; x <= width - margenH; x += 2) {
         let axial = 0;
         if (x > xFijo) axial += Rax;
@@ -321,18 +316,23 @@ function drawAxial(Rax, xA, xB) {
             let cx = margenH + c.x_rel * anchoUtil;
             if (x > cx) axial += c.f * cos(radians(c.ang));
         });
-        vertex(x, baseline - axial * escala);
+        vals.push(axial);
     }
-    vertex(width - margenH, baseline);
-    endShape(CLOSE);
-    fill(100); noStroke(); text("Axial (N)", width/2, baseline + 35);
+    
+    let maxA = max(vals.map(abs)) || 1;
+    let escala = 50 / maxA;
+
+    fill(100, 200, 100, 40); stroke(0, 150, 0); strokeWeight(2);
+    beginShape(); vertex(margenH, baseline);
+    for (let i = 0; i < vals.length; i++) vertex(margenH + i*2, baseline - vals[i] * escala);
+    vertex(width - margenH, baseline); endShape(CLOSE);
+    
+    dibujarValoresCriticos(baseline, vals, escala, "Axial (N)");
 }
 
 function drawCortante(Ray, Rby, xA, xB) {
-    let baseline = vigaY + 270; let escala = 0.4; let anchoUtil = width - 2 * margenH;
-    fill(0, 100, 255, 30); stroke(0, 50, 200); strokeWeight(2);
-    beginShape();
-    vertex(margenH, baseline);
+    let baseline = vigaY + 280; let anchoUtil = width - 2 * margenH;
+    let vals = [];
     for (let x = margenH; x <= width - margenH; x += 2) {
         let v = 0;
         if (x > xA) v += Ray;
@@ -341,22 +341,26 @@ function drawCortante(Ray, Rby, xA, xB) {
         distribuidas.forEach(d => {
             let xd1 = margenH + d.x1 * anchoUtil, xd2 = margenH + d.x2 * anchoUtil;
             if (x > xd1) { 
-                let tramo_px = xd2 - xd1; 
                 let stretch_px = min(x, xd2) - xd1; 
-                v -= (d.f * (stretch_px / tramo_px) * d.dir); 
+                v -= (d.f * (stretch_px / (xd2 - xd1)) * d.dir); 
             }
         });
-        vertex(x, baseline - v * escala);
+        vals.push(v);
     }
-    vertex(width - margenH, baseline);
-    endShape(CLOSE);
-    fill(100); noStroke(); text("Cortante (V)", width/2, baseline + 45);
+    let maxV = max(vals.map(abs)) || 1;
+    let escala = 50 / maxV;
+
+    fill(0, 100, 255, 40); stroke(0, 50, 200); beginShape();
+    vertex(margenH, baseline);
+    for (let i = 0; i < vals.length; i++) vertex(margenH + i*2, baseline - vals[i] * escala);
+    vertex(width - margenH, baseline); endShape(CLOSE);
+    
+    dibujarValoresCriticos(baseline, vals, escala, "Cortante (V)");
 }
 
 function drawMomento(Ray, Rby, xA, xB) {
-    let baselineM = vigaY + 430; let anchoUtil = width - 2 * margenH;
-    let momentos = [];
-    let puntosX = [];
+    let baselineM = vigaY + 440; let anchoUtil = width - 2 * margenH;
+    let vals = [];
     for(let x = margenH; x <= width - margenH; x += 2) {
         let m = 0;
         if (x > xA) m += Ray * (x - xA);
@@ -373,26 +377,42 @@ function drawMomento(Ray, Rby, xA, xB) {
                 m -= cargaTramo * (x - (xd1 + stretch_px / 2));
             }
         });
-        momentos.push(abs(m));
-        puntosX.push(x);
+        vals.push(m);
     }
-    let escalaM = max(momentos) !== 0 ? 80 / max(momentos) : 1;
-    fill(255, 50, 50, 30); stroke(200, 0, 0); strokeWeight(2);
-    beginShape();
+    let maxM = max(vals.map(abs)) || 1;
+    let escala = 60 / maxM;
+
+    fill(255, 50, 50, 40); stroke(200, 0, 0); beginShape();
     vertex(margenH, baselineM);
-    for(let i=0; i<momentos.length; i++) vertex(puntosX[i], baselineM - momentos[i] * escalaM);
-    vertex(width - margenH, baselineM);
-    endShape(CLOSE);
-    fill(100); noStroke(); text("Momento (M)", width/2, baselineM + 45);
+    for(let i=0; i<vals.length; i++) vertex(margenH + i*2, baselineM - vals[i] * escala);
+    vertex(width - margenH, baselineM); endShape(CLOSE);
+    
+    dibujarValoresCriticos(baselineM, vals, escala, "Momento (M)");
 }
 
-function touchEnded() { dragging = null; }
-function doubleClicked() {
+function dibujarValoresCriticos(yBase, datos, esc, titulo) {
     let anchoUtil = width - 2 * margenH;
-    apoyos.forEach(ap => { if (dist(mouseX, mouseY, margenH + ap.x_rel * anchoUtil, vigaY) < 50) {
-        if (ap.tipo === 'fijo' && ap.lado === 1) ap.tipo = 'movil'; else if (ap.tipo === 'movil' && ap.lado === 1) { ap.tipo = 'fijo'; ap.lado = -1; }
-        else if (ap.tipo === 'fijo' && ap.lado === -1) ap.tipo = 'movil'; else { ap.tipo = 'fijo'; ap.lado = 1; }
-    }});
+    stroke(100); strokeWeight(1); line(margenH, yBase, width - margenH, yBase);
+    fill(100); noStroke(); textAlign(CENTER); text(titulo, width/2, yBase + 65);
+
+    // Puntos de interés: Cargas, Apoyos y Extremos
+    let puntosInteres = [0, 1];
+    apoyos.forEach(a => puntosInteres.push(a.x_rel));
+    cargas.forEach(c => puntosInteres.push(c.x_rel));
+    distribuidas.forEach(d => { puntosInteres.push(d.x1); puntosInteres.push(d.x2); });
+    puntosInteres = [...new Set(puntosInteres)].sort((a, b) => a - b);
+
+    puntosInteres.forEach(p => {
+        let x = margenH + p * anchoUtil;
+        let idx = floor(p * (datos.length - 1));
+        let val = datos[idx];
+        if (abs(val) > 0.1) {
+            fill(0); textSize(9);
+            let yPos = yBase - val * esc;
+            text(val.toFixed(1), x, yPos + (val > 0 ? -8 : 15));
+            stroke(150, 150, 150, 100); line(x, yBase, x, yPos);
+        }
+    });
 }
 </script>
 </body>
