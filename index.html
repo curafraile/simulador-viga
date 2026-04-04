@@ -60,6 +60,14 @@ function actualizarDimensiones() {
     vigaY = height * 0.20; 
     margenH = width * 0.1;
 }
+function xRelToM(x_rel) {
+    return x_rel * vigaLongitudM;
+}
+
+function pxToM(px) {
+    let anchoUtil = width - 2 * margenH;
+    return (px - margenH) / anchoUtil * vigaLongitudM;
+}
 
 function draw() {
     background(245);
@@ -224,20 +232,36 @@ function dibujarApoyos() {
 
 function calcularYDibujarCalculos() {
     let anchoUtil = width - 2 * margenH;
+	let xA_m = xRelToM(apoyos[0].x_rel);
+    let xB_m = xRelToM(apoyos[1].x_rel);
     let xA = margenH + apoyos[0].x_rel * anchoUtil, xB = margenH + apoyos[1].x_rel * anchoUtil;
     if (abs(xA - xB) < 5) return;
     
     let sumFy = 0, sumM_A = 0, sumFx = 0;
-    cargas.forEach(c => { 
-        let fy = c.f * sin(radians(c.ang)), fx = c.f * cos(radians(c.ang));
-        sumFy += fy; sumFx += fx; sumM_A += fy * (margenH + c.x_rel * anchoUtil - xA); 
-    });
+   
+   cargas.forEach(c => { 
+    let fy = c.f * sin(radians(c.ang));
+    let fx = c.f * cos(radians(c.ang));
+
+    // 🔹 Corrección numérica
+    if (abs(fx) < 0.0001) fx = 0;
+    if (abs(fy) < 0.0001) fy = 0;
+
+    sumFy += fy; 
+    sumFx += fx; 
+    let xC_m = xRelToM(c.x_rel);
+    sumM_A += fy * (xC_m - xA_m);
+});
     distribuidas.forEach(d => {
         let fyTotal = d.f * d.dir; sumFy += fyTotal; 
-        sumM_A += fyTotal * (margenH + ((d.x1 + d.x2) / 2) * anchoUtil - xA);
+        let xD_m = xRelToM((d.x1 + d.x2) / 2);
+        sumM_A += fyTotal * (xD_m - xA_m);
     });
     
-    let Rby = sumM_A / (xB - xA), Ray = sumFy - Rby, Rax = -sumFx; 
+    let distanciaAB = xB_m - xA_m;
+    let Rby = sumM_A / distanciaAB;
+    let Ray = sumFy - Rby;
+    let Rax = (apoyos[0].tipo === 'fijo') ? -sumFx : 0;
 
     noStroke(); textAlign(CENTER); textSize(11);
     let ra_fix = apoyos[0].tipo === 'fijo';
@@ -288,7 +312,16 @@ function drawAxial(Rax, xA, xB) {
     let vals = []; let xFijo = (apoyos[0].tipo === 'fijo') ? xA : xB;
     for (let x = margenH; x <= width - margenH; x += 2) {
         let axial = 0; if (x > xFijo) axial += Rax;
-        cargas.forEach(c => { if (x > margenH + c.x_rel * anchoUtil) axial += c.f * cos(radians(c.ang)); });
+        cargas.forEach(c => { 
+             if (pxToM(x) > xRelToM(c.x_rel)){
+                let fx = c.f * cos(radians(c.ang));
+
+           // 🔹 Corrección numérica
+                if (abs(fx) < 0.0001) fx = 0;
+
+                axial += fx;
+    }
+});
         vals.push(axial);
     }
     dibujarDiagrama(baseline, vals, "Axial (N)", '#2ecc71');
@@ -298,11 +331,20 @@ function drawCortante(Ray, Rby, xA, xB) {
     let baseline = vigaY + 310; let anchoUtil = width - 2 * margenH;
     let vals = [];
     for (let x = margenH; x <= width - margenH; x += 2) {
-        let v = 0; if (x > xA) v += Ray; if (x > xB) v += Rby;
-        cargas.forEach(c => { if (x > margenH + c.x_rel * anchoUtil) v -= c.f * sin(radians(c.ang)); });
+	    let x_m = pxToM(x);
+        let v = 0; if (x_m > xRelToM(apoyos[0].x_rel)) v += Ray; 
+         if (x_m > xRelToM(apoyos[1].x_rel)) v += Rby;
+        cargas.forEach(c => { if (x_m > xRelToM(c.x_rel)) v -= c.f * sin(radians(c.ang)); });
         distribuidas.forEach(d => {
-            let xd1 = margenH + d.x1 * anchoUtil, xd2 = margenH + d.x2 * anchoUtil;
-            if (x > xd1) { v -= (d.f * (min(x, xd2) - xd1) / (xd2 - xd1) * d.dir); }
+            let xd1_m = xRelToM(d.x1);
+            let xd2_m = xRelToM(d.x2);
+
+            if (x_m > xd1_m) {
+                let largo = xd2_m - xd1_m;
+                let usado = Math.min(x_m, xd2_m) - xd1_m;
+
+                v -= (d.f * (usado / largo) * d.dir);
+            }
         });
         vals.push(v);
     }
@@ -314,18 +356,30 @@ function drawMomento(Ray, Rby, xA, xB, vVals) {
     let baselineM = vigaY + 480; let anchoUtil = width - 2 * margenH;
     let vals = [];
     for(let x = margenH; x <= width - margenH; x += 2) {
-        let m = 0; if (x > xA) m += Ray * (x - xA); if (x > xB) m += Rby * (x - xB);
+	    let x_m = pxToM(x);
+        let xA_m = xRelToM(apoyos[0].x_rel);
+        let xB_m = xRelToM(apoyos[1].x_rel);
+        let m = 0; if (x_m > xA_m) m += Ray * (x_m - xA_m); if (x_m > xB_m) m += Rby * (x_m - xB_m); 
         cargas.forEach(c => { 
-            let cx = margenH + c.x_rel * anchoUtil; 
-            if (x > cx) m -= (c.f * sin(radians(c.ang))) * (x - cx); 
+            let cx_m = xRelToM(c.x_rel);
+            if (x_m > cx_m) 
+                m -= (c.f * sin(radians(c.ang))) * (x_m - cx_m);        
         });
-        distribuidas.forEach(d => {
-            let xd1 = margenH + d.x1 * anchoUtil, xd2 = margenH + d.x2 * anchoUtil;
-            if (x > xd1) {
-                let span = xd2 - xd1; let curr = min(x, xd2) - xd1;
-                m -= (d.f * (curr/span) * d.dir) * (x - (xd1 + curr/2));
+                distribuidas.forEach(d => {
+                    let xd1_m = xRelToM(d.x1);
+                    let xd2_m = xRelToM(d.x2);
+
+                    if (x_m > xd1_m) {
+                        let largo = xd2_m - xd1_m;
+                        let usado = Math.min(x_m, xd2_m) - xd1_m;
+
+                        let F_parcial = d.f * (usado / largo) * d.dir;
+                        let centroide = xd1_m + usado / 2;
+
+                        m -= F_parcial * (x_m - centroide);
             }
         });
+
         vals.push(m);
     }
     
