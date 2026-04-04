@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#3498db">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Simulador Viga Pro - Reacciones Angulares</title>
+    <title>Simulador Viga ETHA - Análisis Vectorial</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #f0f0f0; touch-action: auto; font-family: sans-serif; }
@@ -249,67 +249,67 @@ function calcularYDibujarCalculos() {
         sumM_A += fyTotal * (margenH + ((d.x1 + d.x2) / 2) * anchoUtil - xA);
     });
     
-    let Rb = sumM_A / (xB - xA);
-    let Ra = sumFy - Rb;
+    let Rby = sumM_A / (xB - xA);
+    let Ray = sumFy - Rby;
     let Rax = -sumFx; 
 
-    noStroke(); textAlign(CENTER); textSize(13);
+    noStroke(); textAlign(CENTER); textSize(11);
     
-    // --- Cálculo de Resultante y Ángulo para Apoyo A ---
+    // --- APOYO A ---
     let ra_is_fixed = apoyos[0].tipo === 'fijo';
-    let rb_is_fixed = apoyos[1].tipo === 'fijo';
-    
-    // Reacción A
-    let RtotalA = ra_is_fixed ? sqrt(sq(Ra) + sq(Rax)) : abs(Ra);
-    let angA = ra_is_fixed ? degrees(atan2(-Ra, -Rax)) : (Ra >= 0 ? 90 : 270);
-    if(angA < 0) angA += 360;
-    
-    fill(255, 220); rect(xA - 35, vigaY + (apoyos[0].lado * 35), 70, 30); 
+    let moduleA = ra_is_fixed ? sqrt(sq(Ray) + sq(Rax)) : abs(Ray);
+    let angleA = ra_is_fixed ? degrees(atan2(Ray, -Rax)) : (Ray >= 0 ? 90 : 270);
+    if(angleA < 0) angleA += 360;
+
+    fill(255, 220); rect(xA - 40, vigaY + (apoyos[0].lado * 35), 80, 45); 
     fill('#27ae60'); 
-    let txtA = `Ra: ${RtotalA.toFixed(1)}N`;
-    if(ra_is_fixed && abs(Rax) > 0.1) txtA += `\n${angA.toFixed(1)}°`;
+    let txtA = `Ray: ${Ray.toFixed(1)}N`;
+    if(ra_is_fixed) txtA += `\nRax: ${Rax.toFixed(1)}N\nRa: ${moduleA.toFixed(1)}N | ${angleA.toFixed(1)}°`;
     text(txtA, xA, vigaY + (apoyos[0].lado * 48));
-    dibujarVectorInclinado(xA, RtotalA, angA);
+    dibujarFlechaResultante(xA, Ray, ra_is_fixed ? Rax : 0);
 
-    // Reacción B
-    let RtotalB = rb_is_fixed ? sqrt(sq(Rb) + sq(Rax)) : abs(Rb);
-    let angB = rb_is_fixed ? degrees(atan2(-Rb, -Rax)) : (Rb >= 0 ? 90 : 270);
-    if(angB < 0) angB += 360;
+    // --- APOYO B ---
+    let rb_is_fixed = apoyos[1].tipo === 'fijo';
+    let moduleB = rb_is_fixed ? sqrt(sq(Rby) + sq(Rax)) : abs(Rby);
+    let angleB = rb_is_fixed ? degrees(atan2(Rby, -Rax)) : (Rby >= 0 ? 90 : 270);
+    if(angleB < 0) angleB += 360;
 
-    fill(255, 220); rect(xB - 35, vigaY + (apoyos[1].lado * 35), 70, 30); 
+    fill(255, 220); rect(xB - 40, vigaY + (apoyos[1].lado * 35), 80, 45); 
     fill('#27ae60'); 
-    let txtB = `Rb: ${RtotalB.toFixed(1)}N`;
-    if(rb_is_fixed && abs(Rax) > 0.1) txtB += `\n${angB.toFixed(1)}°`;
+    let txtB = `Rby: ${Rby.toFixed(1)}N`;
+    if(rb_is_fixed) txtB += `\nRax: ${Rax.toFixed(1)}N\nRb: ${moduleB.toFixed(1)}N | ${angleB.toFixed(1)}°`;
     text(txtB, xB, vigaY + (apoyos[1].lado * 48));
-    dibujarVectorInclinado(xB, RtotalB, angB);
+    dibujarFlechaResultante(xB, Rby, rb_is_fixed ? Rax : 0);
 
     drawAxial(Rax, xA, xB);
-    drawCortante(Ra, Rb, xA, xB); 
-    drawMomento(Ra, Rb, xA, xB);
+    drawCortante(Ray, Rby, xA, xB); 
+    drawMomento(Ray, Rby, xA, xB);
 }
 
-function dibujarVectorInclinado(x, modulo, angulo) {
-    if (modulo < 0.1) return;
-    let largoFlecha = 45;
-    let rad = radians(angulo);
+function dibujarFlechaResultante(x, ry, rx) {
+    if (abs(ry) < 0.1 && abs(rx) < 0.1) return;
+    let largo = 45;
+    let ang = atan2(ry, -rx);
     
-    // El vector nace del apoyo y apunta hacia afuera (acción de la reacción)
-    let xFin = x + largoFlecha * cos(rad);
-    let yFin = vigaY - largoFlecha * sin(rad); 
-    
+    // La flecha nace en el apoyo y apunta hacia la viga (reacción)
+    let xFin = x;
+    let yFin = vigaY;
+    let xIni = x - largo * cos(ang);
+    let yIni = vigaY + largo * sin(ang);
+
     stroke('#27ae60'); strokeWeight(3);
-    line(x, vigaY, xFin, yFin);
+    line(xIni, yIni, xFin, yFin);
     
     push();
     translate(xFin, yFin);
-    rotate(-rad + HALF_PI); 
+    rotate(-ang + HALF_PI); 
     fill('#27ae60'); noStroke();
     triangle(0, 0, -5, 10, 5, 10);
     pop();
 }
 
 function drawAxial(Rax, xA, xB) {
-    let baseline = vigaY + 130; let escala = 0.4; let anchoUtil = width - 2 * margenH;
+    let baseline = vigaY + 140; let escala = 0.4; let anchoUtil = width - 2 * margenH;
     fill(100, 200, 100, 30); stroke(0, 150, 0); strokeWeight(2);
     beginShape();
     let xFijo = (apoyos[0].tipo === 'fijo') ? xA : xB;
@@ -328,15 +328,15 @@ function drawAxial(Rax, xA, xB) {
     fill(100); noStroke(); text("Axial (N)", width/2, baseline + 35);
 }
 
-function drawCortante(Ra, Rb, xA, xB) {
-    let baseline = vigaY + 260; let escala = 0.4; let anchoUtil = width - 2 * margenH;
+function drawCortante(Ray, Rby, xA, xB) {
+    let baseline = vigaY + 270; let escala = 0.4; let anchoUtil = width - 2 * margenH;
     fill(0, 100, 255, 30); stroke(0, 50, 200); strokeWeight(2);
     beginShape();
     vertex(margenH, baseline);
     for (let x = margenH; x <= width - margenH; x += 2) {
         let v = 0;
-        if (x > xA) v += Ra;
-        if (x > xB) v += Rb;
+        if (x > xA) v += Ray;
+        if (x > xB) v += Rby;
         cargas.forEach(c => { if (x > margenH + c.x_rel * anchoUtil) v -= c.f * sin(radians(c.ang)); });
         distribuidas.forEach(d => {
             let xd1 = margenH + d.x1 * anchoUtil, xd2 = margenH + d.x2 * anchoUtil;
@@ -353,14 +353,14 @@ function drawCortante(Ra, Rb, xA, xB) {
     fill(100); noStroke(); text("Cortante (V)", width/2, baseline + 45);
 }
 
-function drawMomento(Ra, Rb, xA, xB) {
-    let baselineM = vigaY + 420; let anchoUtil = width - 2 * margenH;
+function drawMomento(Ray, Rby, xA, xB) {
+    let baselineM = vigaY + 430; let anchoUtil = width - 2 * margenH;
     let momentos = [];
     let puntosX = [];
     for(let x = margenH; x <= width - margenH; x += 2) {
         let m = 0;
-        if (x > xA) m += Ra * (x - xA);
-        if (x > xB) m += Rb * (x - xB);
+        if (x > xA) m += Ray * (x - xA);
+        if (x > xB) m += Rby * (x - xB);
         cargas.forEach(c => { 
             let cx = margenH + c.x_rel * anchoUtil;
             if (x > cx) m -= (c.f * sin(radians(c.ang))) * (x - cx);
