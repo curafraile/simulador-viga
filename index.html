@@ -47,7 +47,7 @@ function setup() {
 
     inputLong = createInput('10').size(40);
     inputLong.position(20, 50);
-    inputLong.input(() => { vigaLongitudM = parseFloat(inputLong.value()) || 0; });
+    inputLong.input(() => { vigaLongitudM = parseFloat(inputLong.value()) || 0.1; });
     
     inputF = createInput('').size(50).hide();
     inputAng = createInput('').size(40).hide();
@@ -60,6 +60,7 @@ function actualizarDimensiones() {
     vigaY = height * 0.20; 
     margenH = width * 0.1;
 }
+
 function xRelToM(x_rel) {
     return x_rel * vigaLongitudM;
 }
@@ -200,7 +201,7 @@ function touchStarted() {
     }
     for (let ap of apoyos) if (dist(mouseX, mouseY, margenH + ap.x_rel * anchoUtil, vigaY) < 35) { dragging = ap; seleccionado = null; }
     
-    if (mouseY < vigaY + 60 || mouseY > vigaY + 250) {
+    if (mouseY < vigaY + 60 || mouseY > vigaY + 300) {
         seleccionado = null; inputF.hide(); inputAng.hide(); inputDist.hide(); btnOk.hide();
     }
 }
@@ -232,36 +233,31 @@ function dibujarApoyos() {
 
 function calcularYDibujarCalculos() {
     let anchoUtil = width - 2 * margenH;
-	let xA_m = xRelToM(apoyos[0].x_rel);
+    let xA_m = xRelToM(apoyos[0].x_rel);
     let xB_m = xRelToM(apoyos[1].x_rel);
-    let xA = margenH + apoyos[0].x_rel * anchoUtil, xB = margenH + apoyos[1].x_rel * anchoUtil;
-    if (abs(xA - xB) < 5) return;
+    let xA_px = margenH + apoyos[0].x_rel * anchoUtil;
+    let xB_px = margenH + apoyos[1].x_rel * anchoUtil;
     
     let sumFy = 0, sumM_A = 0, sumFx = 0;
-   
-   cargas.forEach(c => { 
-    let fy = c.f * sin(radians(c.ang));
-    let fx = c.f * cos(radians(c.ang));
+    
+    cargas.forEach(c => { 
+        let fy = c.f * sin(radians(360 - c.ang));
+        let fx = c.f * cos(radians(360 - c.ang));
+        if (abs(fx) < 0.001) fx = 0;
+        if (abs(fy) < 0.001) fy = 0;
+        sumFy += fy; sumFx += fx;
+        sumM_A += fy * (xRelToM(c.x_rel) - xA_m);
+    });
 
-    // 🔹 Corrección numérica
-    if (abs(fx) < 0.0001) fx = 0;
-    if (abs(fy) < 0.0001) fy = 0;
-
-    sumFy += fy; 
-    sumFx += fx; 
-    let xC_m = xRelToM(c.x_rel);
-    sumM_A += fy * (xC_m - xA_m);
-});
     distribuidas.forEach(d => {
         let fyTotal = d.f * d.dir; sumFy += fyTotal; 
-        let xD_m = xRelToM((d.x1 + d.x2) / 2);
-        sumM_A += fyTotal * (xD_m - xA_m);
+        sumM_A += fyTotal * (xRelToM((d.x1 + d.x2) / 2) - xA_m);
     });
     
     let distanciaAB = xB_m - xA_m;
     let Rby = sumM_A / distanciaAB;
     let Ray = sumFy - Rby;
-    let Rax = (apoyos[0].tipo === 'fijo') ? -sumFx : 0;
+    let Rax = -sumFx;
 
     noStroke(); textAlign(CENTER); textSize(11);
     let ra_fix = apoyos[0].tipo === 'fijo';
@@ -270,28 +266,28 @@ function calcularYDibujarCalculos() {
     let modA = ra_fix ? sqrt(sq(Ray) + sq(Rax)) : abs(Ray);
     let angA = ra_fix ? degrees(atan2(Ray, -Rax)) : (Ray >= 0 ? 90 : 270);
     if(angA < 0) angA += 360;
-    rect(xA - 45, vigaY + 35, 90, 50, 5); 
+    rect(xA_px - 45, vigaY + 35, 90, 50, 5); 
     fill('#27ae60'); noStroke();
     let txtA = `Ray: ${Ray.toFixed(1)}N`;
     if(ra_fix) txtA += `\nRax: ${Rax.toFixed(1)}N\nRa: ${modA.toFixed(1)}N | ${angA.toFixed(1)}°`;
-    text(txtA, xA, vigaY + 48);
-    dibujarFlechaResultante(xA, Ray, ra_fix ? Rax : 0);
+    text(txtA, xA_px, vigaY + 48);
+    dibujarFlechaResultante(xA_px, Ray, ra_fix ? Rax : 0);
 
     let rb_fix = apoyos[1].tipo === 'fijo';
     let modB = rb_fix ? sqrt(sq(Rby) + sq(Rax)) : abs(Rby);
     let angB = rb_fix ? degrees(atan2(Rby, -Rax)) : (Rby >= 0 ? 90 : 270);
     if(angB < 0) angB += 360;
     fill(255, 235); stroke(180); strokeWeight(1);
-    rect(xB - 45, vigaY + 35, 90, 50, 5); 
+    rect(xB_px - 45, vigaY + 35, 90, 50, 5); 
     fill('#27ae60'); noStroke();
     let txtB = `Rby: ${Rby.toFixed(1)}N`;
     if(rb_fix) txtB += `\nRax: ${Rax.toFixed(1)}N\nRb: ${modB.toFixed(1)}N | ${angB.toFixed(1)}°`;
-    text(txtB, xB, vigaY + 48);
-    dibujarFlechaResultante(xB, Rby, rb_fix ? Rax : 0);
+    text(txtB, xB_px, vigaY + 48);
+    dibujarFlechaResultante(xB_px, Rby, rb_fix ? Rax : 0);
 
-    drawAxial(Rax, xA, xB);
-    let cortanteVals = drawCortante(Ray, Rby, xA, xB); 
-    drawMomento(Ray, Rby, xA, xB, cortanteVals);
+    drawAxial(Rax, xA_px, xB_px);
+    let cortanteVals = drawCortante(Ray, Rby, xA_px, xB_px); 
+    drawMomento(Ray, Rby, xA_px, xB_px, cortanteVals);
 }
 
 function dibujarFlechaResultante(x, ry, rx) {
@@ -309,19 +305,18 @@ function dibujarFlechaResultante(x, ry, rx) {
 
 function drawAxial(Rax, xA, xB) {
     let baseline = vigaY + 160; let anchoUtil = width - 2 * margenH;
-    let vals = []; let xFijo = (apoyos[0].tipo === 'fijo') ? xA : xB;
+    let vals = [];
     for (let x = margenH; x <= width - margenH; x += 2) {
-        let axial = 0; if (x > xFijo) axial += Rax;
+        let x_m = pxToM(x);
+        let axial = 0; 
+        if (x_m > xRelToM(apoyos[0].x_rel)) axial += Rax;
         cargas.forEach(c => { 
-             if (pxToM(x) > xRelToM(c.x_rel)){
-                let fx = c.f * cos(radians(c.ang));
-
-           // 🔹 Corrección numérica
-                if (abs(fx) < 0.0001) fx = 0;
-
+            if (x_m > xRelToM(c.x_rel)){
+                let fx = c.f * cos(radians(360 - c.ang));
+                if (abs(fx) < 0.001) fx = 0;
                 axial += fx;
-    }
-});
+            }
+        });
         vals.push(axial);
     }
     dibujarDiagrama(baseline, vals, "Axial (N)", '#2ecc71');
@@ -331,18 +326,18 @@ function drawCortante(Ray, Rby, xA, xB) {
     let baseline = vigaY + 310; let anchoUtil = width - 2 * margenH;
     let vals = [];
     for (let x = margenH; x <= width - margenH; x += 2) {
-	    let x_m = pxToM(x);
-        let v = 0; if (x_m > xRelToM(apoyos[0].x_rel)) v += Ray; 
-         if (x_m > xRelToM(apoyos[1].x_rel)) v += Rby;
-        cargas.forEach(c => { if (x_m > xRelToM(c.x_rel)) v -= c.f * sin(radians(c.ang)); });
+        let x_m = pxToM(x);
+        let v = 0; 
+        if (x_m > xRelToM(apoyos[0].x_rel)) v += Ray; 
+        if (x_m > xRelToM(apoyos[1].x_rel)) v += Rby;
+        cargas.forEach(c => { 
+            if (x_m > xRelToM(c.x_rel)) v -= c.f * sin(radians(360 - c.ang)); 
+        });
         distribuidas.forEach(d => {
-            let xd1_m = xRelToM(d.x1);
-            let xd2_m = xRelToM(d.x2);
-
+            let xd1_m = xRelToM(d.x1), xd2_m = xRelToM(d.x2);
             if (x_m > xd1_m) {
                 let largo = xd2_m - xd1_m;
                 let usado = Math.min(x_m, xd2_m) - xd1_m;
-
                 v -= (d.f * (usado / largo) * d.dir);
             }
         });
@@ -356,41 +351,35 @@ function drawMomento(Ray, Rby, xA, xB, vVals) {
     let baselineM = vigaY + 480; let anchoUtil = width - 2 * margenH;
     let vals = [];
     for(let x = margenH; x <= width - margenH; x += 2) {
-	    let x_m = pxToM(x);
+        let x_m = pxToM(x);
         let xA_m = xRelToM(apoyos[0].x_rel);
         let xB_m = xRelToM(apoyos[1].x_rel);
-        let m = 0; if (x_m > xA_m) m += Ray * (x_m - xA_m); if (x_m > xB_m) m += Rby * (x_m - xB_m); 
+        let m = 0; 
+        if (x_m > xA_m) m += Ray * (x_m - xA_m); 
+        if (x_m > xB_m) m += Rby * (x_m - xB_m); 
         cargas.forEach(c => { 
             let cx_m = xRelToM(c.x_rel);
-            if (x_m > cx_m) 
-                m -= (c.f * sin(radians(c.ang))) * (x_m - cx_m);        
+            if (x_m > cx_m) m -= (c.f * sin(radians(360 - c.ang))) * (x_m - cx_m); 
         });
-                distribuidas.forEach(d => {
-                    let xd1_m = xRelToM(d.x1);
-                    let xd2_m = xRelToM(d.x2);
-
-                    if (x_m > xd1_m) {
-                        let largo = xd2_m - xd1_m;
-                        let usado = Math.min(x_m, xd2_m) - xd1_m;
-
-                        let F_parcial = d.f * (usado / largo) * d.dir;
-                        let centroide = xd1_m + usado / 2;
-
-                        m -= F_parcial * (x_m - centroide);
+        distribuidas.forEach(d => {
+            let xd1_m = xRelToM(d.x1), xd2_m = xRelToM(d.x2);
+            if (x_m > xd1_m) {
+                let largo = xd2_m - xd1_m;
+                let usado = Math.min(x_m, xd2_m) - xd1_m;
+                let F_parcial = d.f * (usado / largo) * d.dir;
+                let centroide = xd1_m + usado / 2;
+                m -= F_parcial * (x_m - centroide);
             }
         });
-
         vals.push(m);
     }
     
-    // DETECCIÓN DE CRUCE POR CERO EN CORTANTE
     let extraPoints = [];
     for(let i=1; i < vVals.length; i++) {
         if((vVals[i-1] > 0 && vVals[i] <= 0) || (vVals[i-1] < 0 && vVals[i] >= 0)) {
             extraPoints.push(i * 2 / (width - 2 * margenH));
         }
     }
-    
     dibujarDiagrama(baselineM, vals, "Momento (M)", '#e74c3c', extraPoints);
 }
 
@@ -407,8 +396,6 @@ function dibujarDiagrama(yBase, datos, titulo, col, extraX = []) {
 
     let pts = [0, 1]; apoyos.forEach(a=>pts.push(a.x_rel)); cargas.forEach(c=>pts.push(c.x_rel));
     distribuidas.forEach(d=>{pts.push(d.x1); pts.push(d.x2);});
-    
-    // AÑADIR CRUCES POR CERO
     extraX.forEach(ex => pts.push(ex));
     
     pts = [...new Set(pts)].sort((a,b)=>a-b);
@@ -417,7 +404,7 @@ function dibujarDiagrama(yBase, datos, titulo, col, extraX = []) {
         let idx = floor(p * (datos.length-1));
         if (idx >= 0 && idx < datos.length) {
             let val = datos[idx];
-            if (abs(val) > 0.1) {
+            if (abs(val) > 0.01) {
                 fill(0); textSize(9);
                 text(val.toFixed(1), x, yBase - val * esc + (val > 0 ? -5 : 12));
                 stroke(150, 100); line(x, yBase, x, yBase - val * esc);
