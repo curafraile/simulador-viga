@@ -5,13 +5,13 @@
     <link rel="apple-touch-icon" href="icono.png">
     <meta name="theme-color" content="#3498db">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Simulador Viga Pro - Final Completo</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background-color: #f0f0f0; touch-action: none; font-family: sans-serif; }
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #f0f0f0; touch-action: auto; font-family: sans-serif; }
         canvas { display: block; }
-        .menu-superior { position: absolute; top: 10px; right: 10px; display: flex; gap: 10px; }
+        .menu-superior { position: absolute; top: 10px; right: 10px; display: flex; gap: 10px; z-index: 10; }
         button { padding: 8px 12px; border-radius: 5px; border: 1px solid #666; background: white; font-weight: bold; cursor: pointer; }
         .btn-add { background: #d4edda; }
         .btn-dist { background: #fff3cd; }
@@ -56,7 +56,7 @@ function setup() {
 }
 
 function actualizarDimensiones() {
-    vigaY = height * 0.28; 
+    vigaY = height * 0.25; 
     margenH = width * 0.1;
 }
 
@@ -65,7 +65,6 @@ function draw() {
     textAlign(LEFT); fill(50); noStroke(); textSize(12);
     text("Longitud Total (m):", 20, 40);
 
-    // --- Viga ---
     strokeWeight(10); stroke(60);
     line(margenH, vigaY, width - margenH, vigaY);
     
@@ -102,7 +101,7 @@ function draw() {
 
 function dibujarCotasRelativas() {
     let anchoUtil = width - 2 * margenH;
-    let yCota = vigaY - 75;
+    let yCota = vigaY - 70;
     let puntos = [{x: 0}, {x: 1}];
     apoyos.forEach(a => puntos.push({x: a.x_rel}));
     cargas.forEach(c => puntos.push({x: c.x_rel}));
@@ -145,7 +144,7 @@ function dibujarDistribuidas() {
         }
         fill(0); noStroke(); textAlign(CENTER);
         text(q.toFixed(1) + " N/m", (x1+x2)/2, esParaArriba ? vigaY-h-5 : vigaY+h+15);
-        fill(255, 200, 0); ellipse((x1 + x2) / 2, vigaY, 18, 18);
+        fill(255, 200, 0); stroke(0); ellipse((x1 + x2) / 2, vigaY, 18, 18);
     });
 }
 
@@ -157,9 +156,9 @@ function dibujarCargas() {
         let xf = x + 50 * cos(r); let yf = vigaY + 50 * sin(r);
         stroke('#e74c3c'); strokeWeight(3); line(xf, yf, x, vigaY);
         push(); translate(x, vigaY); rotate(r); fill('#e74c3c'); triangle(0, 0, 10, 5, 10, -5);
-        noFill(); stroke(100, 100, 255); arc(0, 0, 30, 30, -radians(c.ang), 0); pop();
+        noFill(); stroke(100, 100, 255); strokeWeight(1); arc(0, 0, 30, 30, -radians(c.ang), 0); pop();
         fill(0); noStroke(); textAlign(CENTER); text(`${c.f}N / ${c.ang}°`, xf, yf - 8);
-        fill(seleccionado === c ? 'yellow' : 'red'); stroke(0); ellipse(x, vigaY, 22, 22);
+        fill(seleccionado === c ? 'yellow' : 'red'); stroke(0); strokeWeight(1); ellipse(x, vigaY, 22, 22);
     }
 }
 
@@ -184,7 +183,7 @@ function touchStarted() {
     if (seleccionado) {
         let x_pos = seleccionado.x_rel !== undefined ? seleccionado.x_rel : (seleccionado.x1 + seleccionado.x2) / 2;
         let pX = constrain(margenH + x_pos * anchoUtil - 75, 10, width - 160);
-        if (mouseX > pX && mouseX < pX + 150 && mouseY > vigaY - 180 && mouseY < vigaY - 90) return;
+        if (mouseX > pX && mouseX < pX + 150 && mouseY > vigaY - 180 && mouseY < vigaY - 80) return;
     }
     for (let d of distribuidas) {
         if (dist(mouseX, mouseY, margenH + (d.x1 + d.x2) / 2 * anchoUtil, vigaY) < 25) {
@@ -225,7 +224,7 @@ function dibujarApoyos() {
         let x = margenH + ap.x_rel * anchoUtil;
         let yBase = vigaY + (ap.lado * 5);
         push(); translate(x, yBase); if (ap.lado === -1) scale(1, -1);
-        fill(ap.tipo === 'fijo' ? '#3498db' : '#bdc3c7'); stroke(50);
+        fill(ap.tipo === 'fijo' ? '#3498db' : '#bdc3c7'); stroke(50); strokeWeight(2);
         if (ap.tipo === 'fijo') triangle(-15, 25, 15, 25, 0, 0); else { ellipse(0, 12, 22, 22); line(-15, 25, 15, 25); }
         pop();
     });
@@ -238,14 +237,12 @@ function calcularYDibujarCalculos() {
     if (abs(xA - xB) < 5) return;
     
     let sumFy = 0, sumM_A = 0, sumFx = 0;
-    
     cargas.forEach(c => { 
         let fy = c.f * sin(radians(c.ang)); 
         let fx = c.f * cos(radians(c.ang));
         sumFy += fy; sumFx += fx;
         sumM_A += fy * (margenH + c.x_rel * anchoUtil - xA); 
     });
-    
     distribuidas.forEach(d => {
         let fyTotal = d.f * d.dir; 
         sumFy += fyTotal; 
@@ -255,11 +252,24 @@ function calcularYDibujarCalculos() {
     let Rb = sumM_A / (xB - xA);
     let Ra = sumFy - Rb;
     let Rax = -sumFx; 
+
+    // --- Estilo de texto de Reacciones corregido ---
+    noStroke(); textAlign(CENTER); textSize(14);
     
+    // Ra
+    fill(255, 220); rect(xA - 30, vigaY + (apoyos[0].lado * 35), 60, 20); // Fondo para legibilidad
     fill('#27ae60'); text(`Ra: ${abs(Ra).toFixed(1)}N`, xA, vigaY + (apoyos[0].lado * 50));
-    text(`Rb: ${abs(Rb).toFixed(1)}N`, xB, vigaY + (apoyos[1].lado * 50));
-    if(apoyos[0].tipo === 'fijo') text(`Rax: ${Rax.toFixed(1)}N`, xA - 40, vigaY);
-    else if(apoyos[1].tipo === 'fijo') text(`Rax: ${Rax.toFixed(1)}N`, xB + 40, vigaY);
+    
+    // Rb
+    fill(255, 220); rect(xB - 30, vigaY + (apoyos[1].lado * 35), 60, 20); 
+    fill('#27ae60'); text(`Rb: ${abs(Rb).toFixed(1)}N`, xB, vigaY + (apoyos[1].lado * 50));
+    
+    // Rax
+    if(abs(Rax) > 0.1) {
+        let xRax = (apoyos[0].tipo === 'fijo') ? xA - 50 : xB + 50;
+        fill(255, 220); rect(xRax - 30, vigaY - 10, 60, 20);
+        fill('#27ae60'); text(`Rax: ${Rax.toFixed(1)}N`, xRax, vigaY + 5);
+    }
 
     drawAxial(Rax, xA, xB);
     drawCortante(Ra, Rb, xA, xB); 
@@ -267,7 +277,7 @@ function calcularYDibujarCalculos() {
 }
 
 function drawAxial(Rax, xA, xB) {
-    let baseline = vigaY + 110; let escala = 0.4; let anchoUtil = width - 2 * margenH;
+    let baseline = vigaY + 130; let escala = 0.4; let anchoUtil = width - 2 * margenH;
     fill(100, 200, 100, 30); stroke(0, 150, 0); strokeWeight(2);
     beginShape();
     let xFijo = (apoyos[0].tipo === 'fijo') ? xA : xB;
@@ -287,7 +297,7 @@ function drawAxial(Rax, xA, xB) {
 }
 
 function drawCortante(Ra, Rb, xA, xB) {
-    let baseline = vigaY + 230; let escala = 0.4; let anchoUtil = width - 2 * margenH;
+    let baseline = vigaY + 260; let escala = 0.4; let anchoUtil = width - 2 * margenH;
     fill(0, 100, 255, 30); stroke(0, 50, 200); strokeWeight(2);
     beginShape();
     vertex(margenH, baseline);
@@ -312,7 +322,7 @@ function drawCortante(Ra, Rb, xA, xB) {
 }
 
 function drawMomento(Ra, Rb, xA, xB) {
-    let baselineM = vigaY + 390; let anchoUtil = width - 2 * margenH;
+    let baselineM = vigaY + 420; let anchoUtil = width - 2 * margenH;
     let momentos = [];
     let puntosX = [];
     for(let x = margenH; x <= width - margenH; x += 2) {
@@ -346,7 +356,8 @@ function drawMomento(Ra, Rb, xA, xB) {
 
 function touchEnded() { dragging = null; }
 function doubleClicked() {
-    apoyos.forEach(ap => { if (dist(mouseX, mouseY, margenH + ap.x_rel * (width - 2 * margenH), vigaY) < 50) {
+    let anchoUtil = width - 2 * margenH;
+    apoyos.forEach(ap => { if (dist(mouseX, mouseY, margenH + ap.x_rel * anchoUtil, vigaY) < 50) {
         if (ap.tipo === 'fijo' && ap.lado === 1) ap.tipo = 'movil'; else if (ap.tipo === 'movil' && ap.lado === 1) { ap.tipo = 'fijo'; ap.lado = -1; }
         else if (ap.tipo === 'fijo' && ap.lado === -1) ap.tipo = 'movil'; else { ap.tipo = 'fijo'; ap.lado = 1; }
     }});
