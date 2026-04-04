@@ -237,7 +237,7 @@ function calcularYDibujarCalculos() {
         sumM_A += fyTotal * (margenH + ((d.x1 + d.x2) / 2) * anchoUtil - xA);
     });
     
-    let Rby = sumM_A / (xB - xA), Ray = sumFy - Rby, Rax = -sumFx; 
+    let Rby = sumM_A / (xB - xA), Ray = sumFy - Rby, Rax = -sumFx;
 
     noStroke(); textAlign(CENTER); textSize(11);
     let ra_fix = apoyos[0].tipo === 'fijo';
@@ -291,7 +291,7 @@ function drawAxial(Rax, xA, xB) {
         cargas.forEach(c => { if (x > margenH + c.x_rel * anchoUtil) axial += c.f * cos(radians(c.ang)); });
         vals.push(axial);
     }
-    dibujarDiagrama(baseline, vals, "Axial (N)", '#2ecc71');
+    dibujarDiagrama(baseline, vals, "Axial (N)", '#2ecc71', false);
 }
 
 function drawCortante(Ray, Rby, xA, xB) {
@@ -306,7 +306,7 @@ function drawCortante(Ray, Rby, xA, xB) {
         });
         vals.push(v);
     }
-    dibujarDiagrama(baseline, vals, "Cortante (V)", '#3498db');
+    dibujarDiagrama(baseline, vals, "Cortante (V)", '#3498db', false);
     return vals;
 }
 
@@ -314,22 +314,28 @@ function drawMomento(Ray, Rby, xA, xB, vVals) {
     let baselineM = vigaY + 480; let anchoUtil = width - 2 * margenH;
     let vals = [];
     for(let x = margenH; x <= width - margenH; x += 2) {
-        let m = 0; if (x > xA) m += Ray * (x - xA); if (x > xB) m += Rby * (x - xB);
+        let m = 0; 
+        // Distancia real en metros = (x - origen) * (Longitud / anchoUtil)
+        let factorM = vigaLongitudM / anchoUtil;
+        
+        if (x > xA) m += Ray * (x - xA) * factorM;
+        if (x > xB) m += Rby * (x - xB) * factorM;
         cargas.forEach(c => { 
             let cx = margenH + c.x_rel * anchoUtil; 
-            if (x > cx) m -= (c.f * sin(radians(c.ang))) * (x - cx); 
+            if (x > cx) m -= (c.f * sin(radians(c.ang))) * (x - cx) * factorM; 
         });
         distribuidas.forEach(d => {
             let xd1 = margenH + d.x1 * anchoUtil, xd2 = margenH + d.x2 * anchoUtil;
             if (x > xd1) {
-                let span = xd2 - xd1; let curr = min(x, xd2) - xd1;
-                m -= (d.f * (curr/span) * d.dir) * (x - (xd1 + curr/2));
+                let spanPx = xd2 - xd1; 
+                let currPx = min(x, xd2) - xd1;
+                let cargaTramo = d.f * (currPx / spanPx) * d.dir;
+                m -= cargaTramo * (x - (xd1 + currPx/2)) * factorM;
             }
         });
         vals.push(m);
     }
     
-    // DETECCIÓN DE CRUCE POR CERO EN CORTANTE
     let extraPoints = [];
     for(let i=1; i < vVals.length; i++) {
         if((vVals[i-1] > 0 && vVals[i] <= 0) || (vVals[i-1] < 0 && vVals[i] >= 0)) {
@@ -337,10 +343,10 @@ function drawMomento(Ray, Rby, xA, xB, vVals) {
         }
     }
     
-    dibujarDiagrama(baselineM, vals, "Momento (M)", '#e74c3c', extraPoints);
+    dibujarDiagrama(baselineM, vals, "Momento (M-Nm)", '#e74c3c', true, extraPoints);
 }
 
-function dibujarDiagrama(yBase, datos, titulo, col, extraX = []) {
+function dibujarDiagrama(yBase, datos, titulo, col, esMomento, extraX = []) {
     let anchoUtil = width - 2 * margenH;
     let maxAbs = max(datos.map(abs)) || 1;
     let esc = 50 / maxAbs;
@@ -353,9 +359,7 @@ function dibujarDiagrama(yBase, datos, titulo, col, extraX = []) {
 
     let pts = [0, 1]; apoyos.forEach(a=>pts.push(a.x_rel)); cargas.forEach(c=>pts.push(c.x_rel));
     distribuidas.forEach(d=>{pts.push(d.x1); pts.push(d.x2);});
-    
-    // AÑADIR CRUCES POR CERO
-    extraX.forEach(ex => pts.push(ex));
+    if(esMomento) extraX.forEach(ex => pts.push(ex));
     
     pts = [...new Set(pts)].sort((a,b)=>a-b);
     pts.forEach(p => {
@@ -363,7 +367,7 @@ function dibujarDiagrama(yBase, datos, titulo, col, extraX = []) {
         let idx = floor(p * (datos.length-1));
         if (idx >= 0 && idx < datos.length) {
             let val = datos[idx];
-            if (abs(val) > 0.1) {
+            if (abs(val) > 0.01) {
                 fill(0); textSize(9);
                 text(val.toFixed(1), x, yBase - val * esc + (val > 0 ? -5 : 12));
                 stroke(150, 100); line(x, yBase, x, yBase - val * esc);
