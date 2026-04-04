@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#3498db">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Simulador Viga ETHA - Análisis Real</title>
+    <title>Simulador Viga ETHA - Análisis Vectorial</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #f0f0f0; touch-action: auto; font-family: sans-serif; }
@@ -47,7 +47,7 @@ function setup() {
 
     inputLong = createInput('10').size(40);
     inputLong.position(20, 50);
-    inputLong.input(() => { vigaLongitudM = parseFloat(inputLong.value()) || 1; });
+    inputLong.input(() => { vigaLongitudM = parseFloat(inputLong.value()) || 0; });
     
     inputF = createInput('').size(50).hide();
     inputAng = createInput('').size(40).hide();
@@ -57,7 +57,7 @@ function setup() {
 }
 
 function actualizarDimensiones() {
-    vigaY = height * 0.18; 
+    vigaY = height * 0.20; 
     margenH = width * 0.1;
 }
 
@@ -80,14 +80,17 @@ function draw() {
         let x_pos = seleccionado.x_rel !== undefined ? seleccionado.x_rel : (seleccionado.x1 + seleccionado.x2) / 2;
         let x = margenH + x_pos * anchoUtil;
         let panelX = constrain(x - 75, 10, width - 160);
-        let panelY = vigaY + 110; 
-        fill(255, 240, 200, 240); stroke(0); strokeWeight(1);
+        let panelY = vigaY + 100; 
+        
+        fill(255, 240, 200, 230); stroke(0); strokeWeight(1);
         let esDist = seleccionado.x1 !== undefined;
-        rect(panelX, panelY, 150, esDist ? 95 : 90, 5);
+        let hPanel = esDist ? 95 : 90;
+        rect(panelX, panelY, 150, hPanel, 5);
+        
         fill(0); textAlign(CENTER); noStroke(); textSize(10);
         if (esDist) {
             text("Fuerza Total (N):", panelX + 45, panelY + 25); inputF.position(panelX + 95, panelY + 12).show();
-            text("Tramo (m):", panelX + 45, panelY + 55); inputDist.position(panelX + 95, panelY + 42).show();
+            text("Distancia (m):", panelX + 45, panelY + 55); inputDist.position(panelX + 95, panelY + 42).show();
             btnOk.position(panelX + 60, panelY + 70).show();
         } else {
             text("Fuerza (N):", panelX + 45, panelY + 25); inputF.position(panelX + 95, panelY + 12).show();
@@ -99,12 +102,13 @@ function draw() {
 
 function dibujarCotasRelativas() {
     let anchoUtil = width - 2 * margenH;
-    let yCota = vigaY - 60;
+    let yCota = vigaY - 70;
     let puntos = [{x: 0}, {x: 1}];
     apoyos.forEach(a => puntos.push({x: a.x_rel}));
     cargas.forEach(c => puntos.push({x: c.x_rel}));
     distribuidas.forEach(d => { puntos.push({x: d.x1}); puntos.push({x: d.x2}); });
     puntos.sort((a, b) => a.x - b.x);
+
     for (let i = 0; i < puntos.length - 1; i++) {
         let x1 = margenH + puntos[i].x * anchoUtil;
         let x2 = margenH + puntos[i+1].x * anchoUtil;
@@ -114,6 +118,7 @@ function dibujarCotasRelativas() {
             line(x1, yCota, x2, yCota);
             line(x1, yCota-5, x1, yCota+5); line(x2, yCota-5, x2, yCota+5);
             drawingContext.setLineDash([4, 4]); line(x1, yCota+5, x1, vigaY-10);
+            if(i == puntos.length-2) line(x2, yCota+5, x2, vigaY-10);
             drawingContext.setLineDash([]);
             fill(0); noStroke(); textAlign(CENTER); text(distM.toFixed(2) + "m", (x1 + x2) / 2, yCota - 10);
         }
@@ -124,14 +129,18 @@ function dibujarDistribuidas() {
     let anchoUtil = width - 2 * margenH;
     distribuidas.forEach(d => {
         let x1 = margenH + d.x1 * anchoUtil, x2 = margenH + d.x2 * anchoUtil;
-        let h = 30, esParaArriba = d.dir === -1; 
+        let h = 40, esParaArriba = d.dir === -1; 
         let q = d.f / ((d.x2 - d.x1) * vigaLongitudM); 
         fill(255, 165, 0, 80); stroke(255, 140, 0); strokeWeight(1);
         let yRect = esParaArriba ? vigaY - h : vigaY;
         rect(x1, yRect, x2 - x1, h);
         for (let i = x1 + 2; i <= x2; i += 12) {
-            line(i, vigaY, i, esParaArriba ? vigaY - h : vigaY + h);
+            line(i, yRect, i, yRect + h);
+            if (esParaArriba) triangle(i-3, vigaY-h+5, i+3, vigaY-h+5, i, vigaY-h);
+            else triangle(i-3, vigaY+h-5, i+3, vigaY+h-5, i, vigaY+h);
         }
+        fill(0); noStroke(); textAlign(CENTER);
+        text(q.toFixed(1) + " N/m", (x1+x2)/2, esParaArriba ? vigaY-h-5 : vigaY+h+15);
         fill(255, 200, 0); stroke(0); ellipse((x1 + x2) / 2, vigaY, 18, 18);
     });
 }
@@ -141,9 +150,11 @@ function dibujarCargas() {
     for (let c of cargas) {
         let x = margenH + c.x_rel * anchoUtil;
         let r = radians(360 - c.ang);
-        let xf = x + 40 * cos(r); let yf = vigaY + 40 * sin(r);
+        let xf = x + 50 * cos(r); let yf = vigaY + 50 * sin(r);
         stroke('#e74c3c'); strokeWeight(3); line(xf, yf, x, vigaY);
-        push(); translate(x, vigaY); rotate(r); fill('#e74c3c'); triangle(0, 0, 10, 5, 10, -5); pop();
+        push(); translate(x, vigaY); rotate(r); fill('#e74c3c'); triangle(0, 0, 10, 5, 10, -5);
+        noFill(); stroke(100, 100, 255); strokeWeight(1); arc(0, 0, 30, 30, -radians(c.ang), 0); pop();
+        fill(0); noStroke(); textAlign(CENTER); text(`${c.f}N / ${c.ang}°`, xf, yf - 8);
         fill(seleccionado === c ? 'yellow' : 'red'); stroke(0); strokeWeight(1); ellipse(x, vigaY, 22, 22);
     }
 }
@@ -152,10 +163,10 @@ function guardarCambios() {
     if (seleccionado) {
         seleccionado.f = parseFloat(inputF.value()) || 0;
         if (seleccionado.x1 !== undefined) {
-            let nD = (parseFloat(inputDist.value()) || 1) / vigaLongitudM;
-            let c = (seleccionado.x1 + seleccionado.x2) / 2;
-            seleccionado.x1 = constrain(c - nD/2, 0, 1);
-            seleccionado.x2 = constrain(c + nD/2, 0, 1);
+            let nuevaDistRel = (parseFloat(inputDist.value()) || 1) / vigaLongitudM;
+            let centro = (seleccionado.x1 + seleccionado.x2) / 2;
+            seleccionado.x1 = constrain(centro - nuevaDistRel/2, 0, 1);
+            seleccionado.x2 = constrain(centro + nuevaDistRel/2, 0, 1);
         } else { seleccionado.ang = parseFloat(inputAng.value()) || 270; }
     }
     seleccionado = null; inputF.hide(); inputAng.hide(); inputDist.hide(); btnOk.hide();
@@ -163,11 +174,27 @@ function guardarCambios() {
 
 function touchStarted() {
     let anchoUtil = width - 2 * margenH;
-    if (seleccionado && mouseY > vigaY + 100) return;
-    for (let d of distribuidas) if (dist(mouseX, mouseY, margenH + (d.x1 + d.x2) / 2 * anchoUtil, vigaY) < 25) { if (seleccionado === d) d.dir *= -1; seleccionado = d; inputF.value(d.f); inputDist.value(((d.x2 - d.x1) * vigaLongitudM).toFixed(2)); dragging = d; return false; }
-    for (let c of cargas) if (dist(mouseX, mouseY, margenH + c.x_rel * anchoUtil, vigaY) < 30) { seleccionado = c; inputF.value(c.f); inputAng.value(c.ang); dragging = c; return false; }
+    if (seleccionado && mouseY > vigaY + 90) return; 
+
+    for (let d of distribuidas) {
+        if (dist(mouseX, mouseY, margenH + (d.x1 + d.x2) / 2 * anchoUtil, vigaY) < 25) {
+            if (seleccionado === d) { d.dir *= -1; }
+            seleccionado = d; inputF.value(d.f);
+            inputDist.value(((d.x2 - d.x1) * vigaLongitudM).toFixed(2));
+            dragging = d; return false;
+        }
+    }
+    for (let c of cargas) {
+        if (dist(mouseX, mouseY, margenH + c.x_rel * anchoUtil, vigaY) < 30) {
+            seleccionado = c; inputF.value(c.f); inputAng.value(c.ang);
+            dragging = c; return false;
+        }
+    }
     for (let ap of apoyos) if (dist(mouseX, mouseY, margenH + ap.x_rel * anchoUtil, vigaY) < 35) { dragging = ap; seleccionado = null; }
-    if (mouseY < vigaY + 60 || mouseY > vigaY + 300) { seleccionado = null; inputF.hide(); inputAng.hide(); inputDist.hide(); btnOk.hide(); }
+    
+    if (mouseY < vigaY + 60 || mouseY > vigaY + 250) {
+        seleccionado = null; inputF.hide(); inputAng.hide(); inputDist.hide(); btnOk.hide();
+    }
 }
 
 function touchMoved() {
@@ -199,43 +226,61 @@ function calcularYDibujarCalculos() {
     let anchoUtil = width - 2 * margenH;
     let xA = margenH + apoyos[0].x_rel * anchoUtil, xB = margenH + apoyos[1].x_rel * anchoUtil;
     if (abs(xA - xB) < 5) return;
+    
     let sumFy = 0, sumM_A = 0, sumFx = 0;
-    cargas.forEach(c => { let fy = c.f * sin(radians(c.ang)), fx = c.f * cos(radians(c.ang)); sumFy += fy; sumFx += fx; sumM_A += fy * (margenH + c.x_rel * anchoUtil - xA) * (vigaLongitudM / anchoUtil); });
-    distribuidas.forEach(d => { let fyT = d.f * d.dir; sumFy += fyT; sumM_A += fyT * (margenH + ((d.x1 + d.x2) / 2) * anchoUtil - xA) * (vigaLongitudM / anchoUtil); });
-    let L_apoyos = (xB - xA) * (vigaLongitudM / anchoUtil);
-    let Rby = sumM_A / L_apoyos, Ray = sumFy - Rby, Rax = -sumFx;
+    cargas.forEach(c => { 
+        let fy = c.f * sin(radians(c.ang)), fx = c.f * cos(radians(c.ang));
+        sumFy += fy; sumFx += fx; sumM_A += fy * (margenH + c.x_rel * anchoUtil - xA); 
+    });
+    distribuidas.forEach(d => {
+        let fyTotal = d.f * d.dir; sumFy += fyTotal; 
+        sumM_A += fyTotal * (margenH + ((d.x1 + d.x2) / 2) * anchoUtil - xA);
+    });
+    
+    let Rby = sumM_A / (xB - xA), Ray = sumFy - Rby, Rax = -sumFx; 
 
     noStroke(); textAlign(CENTER); textSize(11);
     let ra_fix = apoyos[0].tipo === 'fijo';
-    fill(255, 230); stroke(180); strokeWeight(1);
     
-    // Apoyo A
+    fill(255, 235); stroke(180); strokeWeight(1);
     let modA = ra_fix ? sqrt(sq(Ray) + sq(Rax)) : abs(Ray);
     let angA = ra_fix ? degrees(atan2(Ray, -Rax)) : (Ray >= 0 ? 90 : 270);
     if(angA < 0) angA += 360;
-    rect(xA - 45, vigaY + 35, 90, 50, 5); fill('#27ae60'); noStroke();
-    text(`Ray: ${Ray.toFixed(1)}N\n${ra_fix ? 'Rax: '+Rax.toFixed(1)+'N' : ''}\nRa: ${modA.toFixed(1)}N`, xA, vigaY + 48);
+    rect(xA - 45, vigaY + 35, 90, 50, 5); 
+    fill('#27ae60'); noStroke();
+    let txtA = `Ray: ${Ray.toFixed(1)}N`;
+    if(ra_fix) txtA += `\nRax: ${Rax.toFixed(1)}N\nRa: ${modA.toFixed(1)}N | ${angA.toFixed(1)}°`;
+    text(txtA, xA, vigaY + 48);
     dibujarFlechaResultante(xA, Ray, ra_fix ? Rax : 0);
 
-    // Apoyo B
     let rb_fix = apoyos[1].tipo === 'fijo';
     let modB = rb_fix ? sqrt(sq(Rby) + sq(Rax)) : abs(Rby);
-    fill(255, 230); stroke(180); strokeWeight(1);
-    rect(xB - 45, vigaY + 35, 90, 50, 5); fill('#27ae60'); noStroke();
-    text(`Rby: ${Rby.toFixed(1)}N\n${!ra_fix ? 'Rax: '+Rax.toFixed(1)+'N' : ''}\nRb: ${modB.toFixed(1)}N`, xB, vigaY + 48);
-    dibujarFlechaResultante(xB, Rby, !ra_fix ? Rax : 0);
+    let angB = rb_fix ? degrees(atan2(Rby, -Rax)) : (Rby >= 0 ? 90 : 270);
+    if(angB < 0) angB += 360;
+    fill(255, 235); stroke(180); strokeWeight(1);
+    rect(xB - 45, vigaY + 35, 90, 50, 5); 
+    fill('#27ae60'); noStroke();
+    let txtB = `Rby: ${Rby.toFixed(1)}N`;
+    if(rb_fix) txtB += `\nRax: ${Rax.toFixed(1)}N\nRb: ${modB.toFixed(1)}N | ${angB.toFixed(1)}°`;
+    text(txtB, xB, vigaY + 48);
+    dibujarFlechaResultante(xB, Rby, rb_fix ? Rax : 0);
 
     drawAxial(Rax, xA, xB);
-    let vVals = drawCortante(Ray, Rby, xA, xB); 
-    drawMomento(Ray, Rby, xA, xB, vVals);
+    let cortanteVals = drawCortante(Ray, Rby, xA, xB); 
+    drawMomento(Ray, Rby, xA, xB, cortanteVals);
 }
 
 function dibujarFlechaResultante(x, ry, rx) {
     if (abs(ry) < 0.1 && abs(rx) < 0.1) return;
-    let largo = 40; let ang = atan2(ry, -rx);
-    let xFin = x - largo * cos(ang); let yFin = vigaY + largo * sin(ang);
-    stroke('#27ae60'); strokeWeight(3); line(x, vigaY, xFin, yFin);
-    push(); translate(xFin, yFin); rotate(-ang + PI + HALF_PI); fill('#27ae60'); noStroke(); triangle(0, 0, -5, 10, 5, 10); pop();
+    let largo = 45;
+    let ang = atan2(ry, -rx);
+    let xFin = x - largo * cos(ang);
+    let yFin = vigaY + largo * sin(ang);
+    stroke('#27ae60'); strokeWeight(3);
+    line(x, vigaY, xFin, yFin);
+    push(); translate(xFin, yFin); rotate(-ang + PI + HALF_PI); 
+    fill('#27ae60'); noStroke(); triangle(0, 0, -5, 10, 5, 10);
+    pop();
 }
 
 function drawAxial(Rax, xA, xB) {
@@ -246,7 +291,7 @@ function drawAxial(Rax, xA, xB) {
         cargas.forEach(c => { if (x > margenH + c.x_rel * anchoUtil) axial += c.f * cos(radians(c.ang)); });
         vals.push(axial);
     }
-    dibujarDiagrama(baseline, vals, "Axial (N)", '#2ecc71', false);
+    dibujarDiagrama(baseline, vals, "Axial (N)", '#2ecc71');
 }
 
 function drawCortante(Ray, Rby, xA, xB) {
@@ -257,56 +302,60 @@ function drawCortante(Ray, Rby, xA, xB) {
         cargas.forEach(c => { if (x > margenH + c.x_rel * anchoUtil) v -= c.f * sin(radians(c.ang)); });
         distribuidas.forEach(d => {
             let xd1 = margenH + d.x1 * anchoUtil, xd2 = margenH + d.x2 * anchoUtil;
-            if (x > xd1) v -= (d.f * (min(x, xd2) - xd1) / (xd2 - xd1) * d.dir);
+            if (x > xd1) { v -= (d.f * (min(x, xd2) - xd1) / (xd2 - xd1) * d.dir); }
         });
         vals.push(v);
     }
-    dibujarDiagrama(baseline, vals, "Cortante (V-N)", '#3498db', false);
+    dibujarDiagrama(baseline, vals, "Cortante (V)", '#3498db');
     return vals;
 }
 
 function drawMomento(Ray, Rby, xA, xB, vVals) {
     let baselineM = vigaY + 480; let anchoUtil = width - 2 * margenH;
     let vals = [];
-    let factorDist = vigaLongitudM / anchoUtil;
     for(let x = margenH; x <= width - margenH; x += 2) {
-        let m = 0; 
-        if (x > xA) m += Ray * (x - xA) * factorDist;
-        if (x > xB) m += Rby * (x - xB) * factorDist;
-        cargas.forEach(c => { let cx = margenH + c.x_rel * anchoUtil; if (x > cx) m -= (c.f * sin(radians(c.ang))) * (x - cx) * factorDist; });
+        let m = 0; if (x > xA) m += Ray * (x - xA); if (x > xB) m += Rby * (x - xB);
+        cargas.forEach(c => { 
+            let cx = margenH + c.x_rel * anchoUtil; 
+            if (x > cx) m -= (c.f * sin(radians(c.ang))) * (x - cx); 
+        });
         distribuidas.forEach(d => {
             let xd1 = margenH + d.x1 * anchoUtil, xd2 = margenH + d.x2 * anchoUtil;
             if (x > xd1) {
-                let currPx = min(x, xd2) - xd1;
-                let cargaTramo = d.f * (currPx / (xd2 - xd1)) * d.dir;
-                m -= cargaTramo * (x - (xd1 + currPx/2)) * factorDist;
+                let span = xd2 - xd1; let curr = min(x, xd2) - xd1;
+                m -= (d.f * (curr/span) * d.dir) * (x - (xd1 + curr/2));
             }
         });
         vals.push(m);
     }
+    
+    // DETECCIÓN DE CRUCE POR CERO EN CORTANTE
     let extraPoints = [];
     for(let i=1; i < vVals.length; i++) {
-        if((vVals[i-1] > 0 && vVals[i] <= 0) || (vVals[i-1] < 0 && vVals[i] >= 0)) extraPoints.push(i * 2 / anchoUtil);
+        if((vVals[i-1] > 0 && vVals[i] <= 0) || (vVals[i-1] < 0 && vVals[i] >= 0)) {
+            extraPoints.push(i * 2 / (width - 2 * margenH));
+        }
     }
-    dibujarDiagrama(baselineM, vals, "Momento (M-Nm)", '#e74c3c', true, extraPoints);
+    
+    dibujarDiagrama(baselineM, vals, "Momento (M)", '#e74c3c', extraPoints);
 }
 
-function dibujarDiagrama(yBase, datos, titulo, col, esMomento, extraX = []) {
+function dibujarDiagrama(yBase, datos, titulo, col, extraX = []) {
     let anchoUtil = width - 2 * margenH;
     let maxAbs = max(datos.map(abs)) || 1;
-    let esc = 50 / maxAbs; // La escala visual siempre se ajusta para que entre en 50px de alto
-    
+    let esc = 50 / maxAbs;
     fill(col + '44'); stroke(col); strokeWeight(2);
     beginShape(); vertex(margenH, yBase);
     for(let i=0; i<datos.length; i++) vertex(margenH + i*2, yBase - datos[i] * esc);
     vertex(width - margenH, yBase); endShape(CLOSE);
-    
     stroke(100); line(margenH, yBase, width - margenH, yBase);
     fill(100); noStroke(); textAlign(CENTER); text(titulo, width/2, yBase + 75);
 
     let pts = [0, 1]; apoyos.forEach(a=>pts.push(a.x_rel)); cargas.forEach(c=>pts.push(c.x_rel));
     distribuidas.forEach(d=>{pts.push(d.x1); pts.push(d.x2);});
-    if(esMomento) extraX.forEach(ex => pts.push(ex));
+    
+    // AÑADIR CRUCES POR CERO
+    extraX.forEach(ex => pts.push(ex));
     
     pts = [...new Set(pts)].sort((a,b)=>a-b);
     pts.forEach(p => {
@@ -314,7 +363,7 @@ function dibujarDiagrama(yBase, datos, titulo, col, esMomento, extraX = []) {
         let idx = floor(p * (datos.length-1));
         if (idx >= 0 && idx < datos.length) {
             let val = datos[idx];
-            if (abs(val) > 0.01) {
+            if (abs(val) > 0.1) {
                 fill(0); textSize(9);
                 text(val.toFixed(1), x, yBase - val * esc + (val > 0 ? -5 : 12));
                 stroke(150, 100); line(x, yBase, x, yBase - val * esc);
