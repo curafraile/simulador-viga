@@ -242,9 +242,7 @@ function calcularYDibujarCalculos() {
     noStroke(); textAlign(CENTER); textSize(11);
     let ra_fix = apoyos[0].tipo === 'fijo';
     
-    // --- ETIQUETAS FINAS Y LEGIBLES ---
     fill(255, 235); stroke(180); strokeWeight(1);
-    // Apoyo A
     let modA = ra_fix ? sqrt(sq(Ray) + sq(Rax)) : abs(Ray);
     let angA = ra_fix ? degrees(atan2(Ray, -Rax)) : (Ray >= 0 ? 90 : 270);
     if(angA < 0) angA += 360;
@@ -255,7 +253,6 @@ function calcularYDibujarCalculos() {
     text(txtA, xA, vigaY + 48);
     dibujarFlechaResultante(xA, Ray, ra_fix ? Rax : 0);
 
-    // Apoyo B
     let rb_fix = apoyos[1].tipo === 'fijo';
     let modB = rb_fix ? sqrt(sq(Rby) + sq(Rax)) : abs(Rby);
     let angB = rb_fix ? degrees(atan2(Rby, -Rax)) : (Rby >= 0 ? 90 : 270);
@@ -269,15 +266,14 @@ function calcularYDibujarCalculos() {
     dibujarFlechaResultante(xB, Rby, rb_fix ? Rax : 0);
 
     drawAxial(Rax, xA, xB);
-    drawCortante(Ray, Rby, xA, xB); 
-    drawMomento(Ray, Rby, xA, xB);
+    let cortanteVals = drawCortante(Ray, Rby, xA, xB); 
+    drawMomento(Ray, Rby, xA, xB, cortanteVals);
 }
 
 function dibujarFlechaResultante(x, ry, rx) {
     if (abs(ry) < 0.1 && abs(rx) < 0.1) return;
     let largo = 45;
     let ang = atan2(ry, -rx);
-    // Nace exactamente en el contacto (vigaY)
     let xFin = x - largo * cos(ang);
     let yFin = vigaY + largo * sin(ang);
     stroke('#27ae60'); strokeWeight(3);
@@ -311,9 +307,10 @@ function drawCortante(Ray, Rby, xA, xB) {
         vals.push(v);
     }
     dibujarDiagrama(baseline, vals, "Cortante (V)", '#3498db');
+    return vals;
 }
 
-function drawMomento(Ray, Rby, xA, xB) {
+function drawMomento(Ray, Rby, xA, xB, vVals) {
     let baselineM = vigaY + 480; let anchoUtil = width - 2 * margenH;
     let vals = [];
     for(let x = margenH; x <= width - margenH; x += 2) {
@@ -331,10 +328,19 @@ function drawMomento(Ray, Rby, xA, xB) {
         });
         vals.push(m);
     }
-    dibujarDiagrama(baselineM, vals, "Momento (M)", '#e74c3c');
+    
+    // DETECCIÓN DE CRUCE POR CERO EN CORTANTE
+    let extraPoints = [];
+    for(let i=1; i < vVals.length; i++) {
+        if((vVals[i-1] > 0 && vVals[i] <= 0) || (vVals[i-1] < 0 && vVals[i] >= 0)) {
+            extraPoints.push(i * 2 / (width - 2 * margenH));
+        }
+    }
+    
+    dibujarDiagrama(baselineM, vals, "Momento (M)", '#e74c3c', extraPoints);
 }
 
-function dibujarDiagrama(yBase, datos, titulo, col) {
+function dibujarDiagrama(yBase, datos, titulo, col, extraX = []) {
     let anchoUtil = width - 2 * margenH;
     let maxAbs = max(datos.map(abs)) || 1;
     let esc = 50 / maxAbs;
@@ -347,14 +353,21 @@ function dibujarDiagrama(yBase, datos, titulo, col) {
 
     let pts = [0, 1]; apoyos.forEach(a=>pts.push(a.x_rel)); cargas.forEach(c=>pts.push(c.x_rel));
     distribuidas.forEach(d=>{pts.push(d.x1); pts.push(d.x2);});
+    
+    // AÑADIR CRUCES POR CERO
+    extraX.forEach(ex => pts.push(ex));
+    
     pts = [...new Set(pts)].sort((a,b)=>a-b);
     pts.forEach(p => {
         let x = margenH + p * anchoUtil;
-        let val = datos[floor(p * (datos.length-1))];
-        if (abs(val) > 0.1) {
-            fill(0); textSize(9);
-            text(val.toFixed(1), x, yBase - val * esc + (val > 0 ? -5 : 12));
-            stroke(150, 100); line(x, yBase, x, yBase - val * esc);
+        let idx = floor(p * (datos.length-1));
+        if (idx >= 0 && idx < datos.length) {
+            let val = datos[idx];
+            if (abs(val) > 0.1) {
+                fill(0); textSize(9);
+                text(val.toFixed(1), x, yBase - val * esc + (val > 0 ? -5 : 12));
+                stroke(150, 100); line(x, yBase, x, yBase - val * esc);
+            }
         }
     });
 }
