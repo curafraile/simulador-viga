@@ -224,50 +224,66 @@ function dibujarApoyos() {
 
 function calcularYDibujarCalculos() {
     let anchoUtil = width - 2 * margenH;
-    let xA = margenH + apoyos[0].x_rel * anchoUtil, xB = margenH + apoyos[1].x_rel * anchoUtil;
-    if (abs(xA - xB) < 5) return;
-    
+    // Cálculos de ESTÁTICA REAL usando metros
+    let xA_m = apoyos[0].x_rel * vigaLongitudM;
+    let xB_m = apoyos[1].x_rel * vigaLongitudM;
+    let distApoyos = xB_m - xA_m;
+
+    if (abs(distApoyos) < 0.01) return;
+
     let sumFy = 0, sumM_A = 0, sumFx = 0;
+    
     cargas.forEach(c => { 
-        let fy = c.f * sin(radians(c.ang)), fx = c.f * cos(radians(c.ang));
-        sumFy += fy; sumFx += fx; sumM_A += fy * (margenH + c.x_rel * anchoUtil - xA); 
+        let fy = c.f * sin(radians(c.ang)); 
+        let fx = c.f * cos(radians(c.ang));
+        let pos_m = c.x_rel * vigaLongitudM;
+        sumFy += fy; sumFx += fx;
+        sumM_A += fy * (pos_m - xA_m); 
     });
     distribuidas.forEach(d => {
-        let fyTotal = d.f * d.dir; sumFy += fyTotal; 
-        sumM_A += fyTotal * (margenH + ((d.x1 + d.x2) / 2) * anchoUtil - xA);
+        let fyTotal = d.f * d.dir; 
+        let pos_m = ((d.x1 + d.x2) / 2) * vigaLongitudM;
+        sumFy += fyTotal; 
+        sumM_A += fyTotal * (pos_m - xA_m);
     });
     
-    let Rby = sumM_A / (xB - xA), Ray = sumFy - Rby, Rax = -sumFx;
+    let Rby = sumM_A / distApoyos;
+    let Ray = sumFy - Rby;
+    let Rax = -sumFx; 
 
     noStroke(); textAlign(CENTER); textSize(11);
     let ra_fix = apoyos[0].tipo === 'fijo';
+    let xA_px = margenH + apoyos[0].x_rel * anchoUtil;
+    let xB_px = margenH + apoyos[1].x_rel * anchoUtil;
     
     fill(255, 235); stroke(180); strokeWeight(1);
+    // Apoyo A
     let modA = ra_fix ? sqrt(sq(Ray) + sq(Rax)) : abs(Ray);
     let angA = ra_fix ? degrees(atan2(Ray, -Rax)) : (Ray >= 0 ? 90 : 270);
     if(angA < 0) angA += 360;
-    rect(xA - 45, vigaY + 35, 90, 50, 5); 
+    rect(xA_px - 45, vigaY + 35, 90, 50, 5); 
     fill('#27ae60'); noStroke();
     let txtA = `Ray: ${Ray.toFixed(1)}N`;
     if(ra_fix) txtA += `\nRax: ${Rax.toFixed(1)}N\nRa: ${modA.toFixed(1)}N | ${angA.toFixed(1)}°`;
-    text(txtA, xA, vigaY + 48);
-    dibujarFlechaResultante(xA, Ray, ra_fix ? Rax : 0);
+    text(txtA, xA_px, vigaY + 48);
+    dibujarFlechaResultante(xA_px, Ray, ra_fix ? Rax : 0);
 
+    // Apoyo B
     let rb_fix = apoyos[1].tipo === 'fijo';
     let modB = rb_fix ? sqrt(sq(Rby) + sq(Rax)) : abs(Rby);
     let angB = rb_fix ? degrees(atan2(Rby, -Rax)) : (Rby >= 0 ? 90 : 270);
     if(angB < 0) angB += 360;
     fill(255, 235); stroke(180); strokeWeight(1);
-    rect(xB - 45, vigaY + 35, 90, 50, 5); 
+    rect(xB_px - 45, vigaY + 35, 90, 50, 5); 
     fill('#27ae60'); noStroke();
     let txtB = `Rby: ${Rby.toFixed(1)}N`;
     if(rb_fix) txtB += `\nRax: ${Rax.toFixed(1)}N\nRb: ${modB.toFixed(1)}N | ${angB.toFixed(1)}°`;
-    text(txtB, xB, vigaY + 48);
-    dibujarFlechaResultante(xB, Rby, rb_fix ? Rax : 0);
+    text(txtB, xB_px, vigaY + 48);
+    dibujarFlechaResultante(xB_px, Rby, rb_fix ? Rax : 0);
 
-    drawAxial(Rax, xA, xB);
-    let cortanteVals = drawCortante(Ray, Rby, xA, xB); 
-    drawMomento(Ray, Rby, xA, xB, cortanteVals);
+    drawAxial(Rax, xA_px, xB_px);
+    let cortanteVals = drawCortante(Ray, Rby, xA_px, xB_px); 
+    drawMomento(Ray, Rby, xA_px, xB_px, cortanteVals);
 }
 
 function dibujarFlechaResultante(x, ry, rx) {
@@ -315,22 +331,23 @@ function drawMomento(Ray, Rby, xA, xB, vVals) {
     let vals = [];
     for(let x = margenH; x <= width - margenH; x += 2) {
         let m = 0; 
-        // Distancia real en metros = (x - origen) * (Longitud / anchoUtil)
-        let factorM = vigaLongitudM / anchoUtil;
-        
-        if (x > xA) m += Ray * (x - xA) * factorM;
-        if (x > xB) m += Rby * (x - xB) * factorM;
+        let pos_m = ((x - margenH) / anchoUtil) * vigaLongitudM;
+        let xA_m = ((xA - margenH) / anchoUtil) * vigaLongitudM;
+        let xB_m = ((xB - margenH) / anchoUtil) * vigaLongitudM;
+
+        if (pos_m > xA_m) m += Ray * (pos_m - xA_m);
+        if (pos_m > xB_m) m += Rby * (pos_m - xB_m);
         cargas.forEach(c => { 
-            let cx = margenH + c.x_rel * anchoUtil; 
-            if (x > cx) m -= (c.f * sin(radians(c.ang))) * (x - cx) * factorM; 
+            let cx_m = c.x_rel * vigaLongitudM;
+            if (pos_m > cx_m) m -= (c.f * sin(radians(c.ang))) * (pos_m - cx_m); 
         });
         distribuidas.forEach(d => {
-            let xd1 = margenH + d.x1 * anchoUtil, xd2 = margenH + d.x2 * anchoUtil;
-            if (x > xd1) {
-                let spanPx = xd2 - xd1; 
-                let currPx = min(x, xd2) - xd1;
-                let cargaTramo = d.f * (currPx / spanPx) * d.dir;
-                m -= cargaTramo * (x - (xd1 + currPx/2)) * factorM;
+            let d1_m = d.x1 * vigaLongitudM;
+            let d2_m = d.x2 * vigaLongitudM;
+            if (pos_m > d1_m) {
+                let tramoM = min(pos_m, d2_m) - d1_m;
+                let cargaEquivalente = (d.f / (d2_m - d1_m)) * tramoM * d.dir;
+                m -= cargaEquivalente * (pos_m - (d1_m + tramoM/2));
             }
         });
         vals.push(m);
