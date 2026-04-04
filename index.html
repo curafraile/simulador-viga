@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icono.png">
+    <meta name="theme-color" content="#3498db">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulador Viga Pro - Final Completo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #f0f0f0; touch-action: none; font-family: sans-serif; }
+        canvas { display: block; }
+        .menu-superior { position: absolute; top: 10px; right: 10px; display: flex; gap: 10px; }
+        button { padding: 8px 12px; border-radius: 5px; border: 1px solid #666; background: white; font-weight: bold; cursor: pointer; }
+        .btn-add { background: #d4edda; }
+        .btn-dist { background: #fff3cd; }
+        .btn-reset { background: #f8d7da; }
+    </style>
+</head>
+<body>
+
+<div class="menu-superior">
+    <button class="btn-add" onclick="agregarCarga()">+ Carga</button>
+    <button class="btn-dist" onclick="agregarDistribuida()">+ Distr</button>
+    <button class="btn-reset" onclick="reiniciarCargas()">Reset</button>
+</div>
+
+<script>
+let vigaY, margenH;
+let vigaLongitudM = 10; 
+let apoyos = [
+    {x_rel: 0.15, tipo: 'fijo', lado: 1}, 
+    {x_rel: 0.85, tipo: 'movil', lado: 1}
+];
+let cargas = [];
+let distribuidas = [];
+let dragging = null;
+let seleccionado = null;
+
+let inputF, inputAng, inputLong, inputDist, btnOk;
+
+function setup() {
+    createCanvas(windowWidth, windowHeight);
+    actualizarDimensiones();
+
+    inputLong = createInput('10').size(40);
+    inputLong.position(20, 50);
+    inputLong.input(() => { vigaLongitudM = parseFloat(inputLong.value()) || 0; });
+    
+    inputF = createInput('').size(50).hide();
+    inputAng = createInput('').size(40).hide();
+    inputDist = createInput('').size(40).hide(); 
+    btnOk = createButton('OK').hide();
+    btnOk.mousePressed(guardarCambios);
+}
+
+function actualizarDimensiones() {
+    vigaY = height * 0.28; 
+    margenH = width * 0.1;
+}
+
+function draw() {
+    background(245);
+    textAlign(LEFT); fill(50); noStroke(); textSize(12);
+    text("Longitud Total (m):", 20, 40);
+
+    // --- Viga ---
+    strokeWeight(10); stroke(60);
+    line(margenH, vigaY, width - margenH, vigaY);
+    
+    dibujarCotasRelativas();
+    dibujarApoyos();
+    dibujarDistribuidas();
+    dibujarCargas();
+    calcularYDibujarCalculos();
+
+    if (seleccionado) {
+        let anchoUtil = width - 2 * margenH;
+        let x_pos = seleccionado.x_rel !== undefined ? seleccionado.x_rel : (seleccionado.x1 + seleccionado.x2) / 2;
+        let x = margenH + x_pos * anchoUtil;
+        let panelX = constrain(x - 75, 10, width - 160);
+        let panelY = vigaY - 180;
+        
+        fill(255, 240, 200); stroke(0); strokeWeight(1);
+        let esDist = seleccionado.x1 !== undefined;
+        let hPanel = esDist ? 95 : 90;
+        rect(panelX, panelY, 150, hPanel, 5);
+        
+        fill(0); textAlign(CENTER); noStroke(); textSize(10);
+        if (esDist) {
+            text("Fuerza Total (N):", panelX + 45, panelY + 25); inputF.position(panelX + 95, panelY + 12);
+            text("Distancia (m):", panelX + 45, panelY + 55); inputDist.position(panelX + 95, panelY + 42);
+            btnOk.position(panelX + 60, panelY + 70);
+        } else {
+            text("Fuerza (N):", panelX + 45, panelY + 25); inputF.position(panelX + 95, panelY + 12);
+            text("Ang (°):", panelX + 45, panelY + 50); inputAng.position(panelX + 95, panelY + 37);
+            btnOk.position(panelX + 60, panelY + 65);
+        }
+    }
+}
+
+function dibujarCotasRelativas() {
+    let anchoUtil = width - 2 * margenH;
+    let yCota = vigaY - 75;
+    let puntos = [{x: 0}, {x: 1}];
+    apoyos.forEach(a => puntos.push({x: a.x_rel}));
+    cargas.forEach(c => puntos.push({x: c.x_rel}));
+    distribuidas.forEach(d => { puntos.push({x: d.x1}); puntos.push({x: d.x2}); });
+    puntos.sort((a, b) => a.x - b.x);
+
+    for (let i = 0; i < puntos.length - 1; i++) {
+        let x1 = margenH + puntos[i].x * anchoUtil;
+        let x2 = margenH + puntos[i+1].x * anchoUtil;
+        let distM = (puntos[i+1].x - puntos[i].x) * vigaLongitudM;
+        if (distM > 0.001) {
+            stroke(180); strokeWeight(1);
+            line(x1, yCota, x2, yCota);
+            line(x1, yCota-5, x1, yCota+5); line(x2, yCota-5, x2, yCota+5);
+            drawingContext.setLineDash([4, 4]); line(x1, yCota+5, x1, vigaY-10);
+            if(i == puntos.length-2) line(x2, yCota+5, x2, vigaY-10);
+            drawingContext.setLineDash([]);
+            fill(0); noStroke(); textAlign(CENTER); text(distM.toFixed(2) + "m", (x1 + x2) / 2, yCota - 10);
+        }
+    }
+}
+
+function dibujarDistribuidas() {
+    let anchoUtil = width - 2 * margenH;
+    distribuidas.forEach(d => {
+        let x1 = margenH + d.x1 * anchoUtil;
+        let x2 = margenH + d.x2 * anchoUtil;
+        let h = 40;
+        let esParaArriba = d.dir === -1; 
+        let q = d.f / ((d.x2 - d.x1) * vigaLongitudM); 
+
+        fill(255, 165, 0, 80); stroke(255, 140, 0); strokeWeight(1);
+        let yRect = esParaArriba ? vigaY - h : vigaY;
+        rect(x1, yRect, x2 - x1, h);
+        
+        for (let i = x1 + 2; i <= x2; i += 12) {
+            line(i, yRect, i, yRect + h);
+            if (esParaArriba) triangle(i-3, vigaY-h+5, i+3, vigaY-h+5, i, vigaY-h);
+            else triangle(i-3, vigaY+h-5, i+3, vigaY+h-5, i, vigaY+h);
+        }
+        fill(0); noStroke(); textAlign(CENTER);
+        text(q.toFixed(1) + " N/m", (x1+x2)/2, esParaArriba ? vigaY-h-5 : vigaY+h+15);
+        fill(255, 200, 0); ellipse((x1 + x2) / 2, vigaY, 18, 18);
+    });
+}
+
+function dibujarCargas() {
+    let anchoUtil = width - 2 * margenH;
+    for (let c of cargas) {
+        let x = margenH + c.x_rel * anchoUtil;
+        let r = radians(360 - c.ang);
+        let xf = x + 50 * cos(r); let yf = vigaY + 50 * sin(r);
+        stroke('#e74c3c'); strokeWeight(3); line(xf, yf, x, vigaY);
+        push(); translate(x, vigaY); rotate(r); fill('#e74c3c'); triangle(0, 0, 10, 5, 10, -5);
+        noFill(); stroke(100, 100, 255); arc(0, 0, 30, 30, -radians(c.ang), 0); pop();
+        fill(0); noStroke(); textAlign(CENTER); text(`${c.f}N / ${c.ang}°`, xf, yf - 8);
+        fill(seleccionado === c ? 'yellow' : 'red'); stroke(0); ellipse(x, vigaY, 22, 22);
+    }
+}
+
+function guardarCambios() {
+    if (seleccionado) {
+        seleccionado.f = parseFloat(inputF.value()) || 0;
+        if (seleccionado.x1 !== undefined) {
+            let nuevaDistRel = (parseFloat(inputDist.value()) || 1) / vigaLongitudM;
+            let centro = (seleccionado.x1 + seleccionado.x2) / 2;
+            seleccionado.x1 = constrain(centro - nuevaDistRel/2, 0, 1);
+            seleccionado.x2 = constrain(centro + nuevaDistRel/2, 0, 1);
+        } else {
+            seleccionado.ang = parseFloat(inputAng.value()) || 270;
+        }
+    }
+    seleccionado = null;
+    inputF.hide(); inputAng.hide(); inputDist.hide(); btnOk.hide();
+}
+
+function touchStarted() {
+    let anchoUtil = width - 2 * margenH;
+    if (seleccionado) {
+        let x_pos = seleccionado.x_rel !== undefined ? seleccionado.x_rel : (seleccionado.x1 + seleccionado.x2) / 2;
+        let pX = constrain(margenH + x_pos * anchoUtil - 75, 10, width - 160);
+        if (mouseX > pX && mouseX < pX + 150 && mouseY > vigaY - 180 && mouseY < vigaY - 90) return;
+    }
+    for (let d of distribuidas) {
+        if (dist(mouseX, mouseY, margenH + (d.x1 + d.x2) / 2 * anchoUtil, vigaY) < 25) {
+            if (seleccionado === d) { d.dir *= -1; }
+            seleccionado = d; inputF.value(d.f);
+            inputDist.value(((d.x2 - d.x1) * vigaLongitudM).toFixed(2));
+            inputF.show(); inputAng.hide(); inputDist.show(); btnOk.show();
+            dragging = d; return false;
+        }
+    }
+    for (let c of cargas) {
+        if (dist(mouseX, mouseY, margenH + c.x_rel * anchoUtil, vigaY) < 30) {
+            seleccionado = c; inputF.value(c.f); inputAng.value(c.ang);
+            inputF.show(); inputAng.show(); inputDist.hide(); btnOk.show();
+            dragging = c; return false;
+        }
+    }
+    for (let ap of apoyos) if (dist(mouseX, mouseY, margenH + ap.x_rel * anchoUtil, vigaY) < 35) { dragging = ap; seleccionado = null; }
+    seleccionado = null; inputF.hide(); inputAng.hide(); inputDist.hide(); btnOk.hide();
+}
+
+function touchMoved() {
+    if (!dragging) return;
+    let nr = constrain((mouseX - margenH) / (width - 2 * margenH), 0, 1);
+    if (dragging.x_rel !== undefined) dragging.x_rel = nr;
+    else { let w = dragging.x2 - dragging.x1; dragging.x1 = constrain(nr - w/2, 0, 1-w); dragging.x2 = dragging.x1 + w; }
+    return false;
+}
+
+function agregarCarga() { cargas.push({x_rel: 0.5, f: 100, ang: 270}); }
+function agregarDistribuida() { distribuidas.push({x1: 0.3, x2: 0.6, f: 100, dir: 1}); }
+function reiniciarCargas() { cargas = []; distribuidas = []; seleccionado = null; }
+function windowResized() { resizeCanvas(windowWidth, windowHeight); actualizarDimensiones(); }
+
+function dibujarApoyos() {
+    let anchoUtil = width - 2 * margenH;
+    apoyos.forEach(ap => {
+        let x = margenH + ap.x_rel * anchoUtil;
+        let yBase = vigaY + (ap.lado * 5);
+        push(); translate(x, yBase); if (ap.lado === -1) scale(1, -1);
+        fill(ap.tipo === 'fijo' ? '#3498db' : '#bdc3c7'); stroke(50);
+        if (ap.tipo === 'fijo') triangle(-15, 25, 15, 25, 0, 0); else { ellipse(0, 12, 22, 22); line(-15, 25, 15, 25); }
+        pop();
+    });
+}
+
+function calcularYDibujarCalculos() {
+    let anchoUtil = width - 2 * margenH;
+    let xA = margenH + apoyos[0].x_rel * anchoUtil;
+    let xB = margenH + apoyos[1].x_rel * anchoUtil;
+    if (abs(xA - xB) < 5) return;
+    
+    let sumFy = 0, sumM_A = 0, sumFx = 0;
+    
+    cargas.forEach(c => { 
+        let fy = c.f * sin(radians(c.ang)); 
+        let fx = c.f * cos(radians(c.ang));
+        sumFy += fy; sumFx += fx;
+        sumM_A += fy * (margenH + c.x_rel * anchoUtil - xA); 
+    });
+    
+    distribuidas.forEach(d => {
+        let fyTotal = d.f * d.dir; 
+        sumFy += fyTotal; 
+        sumM_A += fyTotal * (margenH + ((d.x1 + d.x2) / 2) * anchoUtil - xA);
+    });
+    
+    let Rb = sumM_A / (xB - xA);
+    let Ra = sumFy - Rb;
+    let Rax = -sumFx; 
+    
+    fill('#27ae60'); text(`Ra: ${abs(Ra).toFixed(1)}N`, xA, vigaY + (apoyos[0].lado * 50));
+    text(`Rb: ${abs(Rb).toFixed(1)}N`, xB, vigaY + (apoyos[1].lado * 50));
+    if(apoyos[0].tipo === 'fijo') text(`Rax: ${Rax.toFixed(1)}N`, xA - 40, vigaY);
+    else if(apoyos[1].tipo === 'fijo') text(`Rax: ${Rax.toFixed(1)}N`, xB + 40, vigaY);
+
+    drawAxial(Rax, xA, xB);
+    drawCortante(Ra, Rb, xA, xB); 
+    drawMomento(Ra, Rb, xA, xB);
+}
+
+function drawAxial(Rax, xA, xB) {
+    let baseline = vigaY + 110; let escala = 0.4; let anchoUtil = width - 2 * margenH;
+    fill(100, 200, 100, 30); stroke(0, 150, 0); strokeWeight(2);
+    beginShape();
+    let xFijo = (apoyos[0].tipo === 'fijo') ? xA : xB;
+    vertex(margenH, baseline);
+    for (let x = margenH; x <= width - margenH; x += 2) {
+        let axial = 0;
+        if (x > xFijo) axial += Rax;
+        cargas.forEach(c => {
+            let cx = margenH + c.x_rel * anchoUtil;
+            if (x > cx) axial += c.f * cos(radians(c.ang));
+        });
+        vertex(x, baseline - axial * escala);
+    }
+    vertex(width - margenH, baseline);
+    endShape(CLOSE);
+    fill(100); noStroke(); text("Axial (N)", width/2, baseline + 35);
+}
+
+function drawCortante(Ra, Rb, xA, xB) {
+    let baseline = vigaY + 230; let escala = 0.4; let anchoUtil = width - 2 * margenH;
+    fill(0, 100, 255, 30); stroke(0, 50, 200); strokeWeight(2);
+    beginShape();
+    vertex(margenH, baseline);
+    for (let x = margenH; x <= width - margenH; x += 2) {
+        let v = 0;
+        if (x > xA) v += Ra;
+        if (x > xB) v += Rb;
+        cargas.forEach(c => { if (x > margenH + c.x_rel * anchoUtil) v -= c.f * sin(radians(c.ang)); });
+        distribuidas.forEach(d => {
+            let xd1 = margenH + d.x1 * anchoUtil, xd2 = margenH + d.x2 * anchoUtil;
+            if (x > xd1) { 
+                let tramo_px = xd2 - xd1; 
+                let stretch_px = min(x, xd2) - xd1; 
+                v -= (d.f * (stretch_px / tramo_px) * d.dir); 
+            }
+        });
+        vertex(x, baseline - v * escala);
+    }
+    vertex(width - margenH, baseline);
+    endShape(CLOSE);
+    fill(100); noStroke(); text("Cortante (V)", width/2, baseline + 45);
+}
+
+function drawMomento(Ra, Rb, xA, xB) {
+    let baselineM = vigaY + 390; let anchoUtil = width - 2 * margenH;
+    let momentos = [];
+    let puntosX = [];
+    for(let x = margenH; x <= width - margenH; x += 2) {
+        let m = 0;
+        if (x > xA) m += Ra * (x - xA);
+        if (x > xB) m += Rb * (x - xB);
+        cargas.forEach(c => { 
+            let cx = margenH + c.x_rel * anchoUtil;
+            if (x > cx) m -= (c.f * sin(radians(c.ang))) * (x - cx);
+        });
+        distribuidas.forEach(d => {
+            let xd1 = margenH + d.x1 * anchoUtil, xd2 = margenH + d.x2 * anchoUtil;
+            if (x > xd1) {
+                let stretch_px = min(x, xd2) - xd1;
+                let cargaTramo = d.f * (stretch_px / (xd2 - xd1)) * d.dir;
+                m -= cargaTramo * (x - (xd1 + stretch_px / 2));
+            }
+        });
+        momentos.push(abs(m));
+        puntosX.push(x);
+    }
+    let escalaM = max(momentos) !== 0 ? 80 / max(momentos) : 1;
+    fill(255, 50, 50, 30); stroke(200, 0, 0); strokeWeight(2);
+    beginShape();
+    vertex(margenH, baselineM);
+    for(let i=0; i<momentos.length; i++) vertex(puntosX[i], baselineM - momentos[i] * escalaM);
+    vertex(width - margenH, baselineM);
+    endShape(CLOSE);
+    fill(100); noStroke(); text("Momento (M)", width/2, baselineM + 45);
+}
+
+function touchEnded() { dragging = null; }
+function doubleClicked() {
+    apoyos.forEach(ap => { if (dist(mouseX, mouseY, margenH + ap.x_rel * (width - 2 * margenH), vigaY) < 50) {
+        if (ap.tipo === 'fijo' && ap.lado === 1) ap.tipo = 'movil'; else if (ap.tipo === 'movil' && ap.lado === 1) { ap.tipo = 'fijo'; ap.lado = -1; }
+        else if (ap.tipo === 'fijo' && ap.lado === -1) ap.tipo = 'movil'; else { ap.tipo = 'fijo'; ap.lado = 1; }
+    }});
+}
+</script>
+</body>
+</html>

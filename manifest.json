@@ -1,0 +1,16 @@
+{
+  "short_name": "SimuViga",
+  "name": "Simulador de Viga p5.js",
+  "icons": [
+    {
+      "src": "icono.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "index.html",
+  "background_color": "#f0f0f0",
+  "display": "standalone",
+  "theme_color": "#3498db"
+}
