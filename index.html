@@ -47,7 +47,10 @@ function setup() {
 
     inputLong = createInput('10').size(40);
     inputLong.position(20, 50);
-    inputLong.input(() => { vigaLongitudM = parseFloat(inputLong.value()) || 0; });
+    inputLong.input(() => { 
+        let val = parseFloat(inputLong.value());
+        vigaLongitudM = isNaN(val) || val <= 0 ? 0.01 : val; 
+    });
     
     inputF = createInput('').size(50).hide();
     inputAng = createInput('').size(40).hide();
@@ -192,7 +195,7 @@ function touchStarted() {
     }
     for (let ap of apoyos) if (dist(mouseX, mouseY, margenH + ap.x_rel * anchoUtil, vigaY) < 35) { dragging = ap; seleccionado = null; }
     
-    if (mouseY < vigaY + 60 || mouseY > vigaY + 250) {
+    if (mouseY < vigaY + 60 || mouseY > vigaY + 300) {
         seleccionado = null; inputF.hide(); inputAng.hide(); inputDist.hide(); btnOk.hide();
     }
 }
@@ -224,7 +227,7 @@ function dibujarApoyos() {
 
 function calcularYDibujarCalculos() {
     let anchoUtil = width - 2 * margenH;
-    // Cálculos de ESTÁTICA REAL usando metros
+    // --- ESTÁTICA REAL ---
     let xA_m = apoyos[0].x_rel * vigaLongitudM;
     let xB_m = apoyos[1].x_rel * vigaLongitudM;
     let distApoyos = xB_m - xA_m;
