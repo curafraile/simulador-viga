@@ -184,26 +184,45 @@ function guardarCambios() {
 
 function touchStarted() {
     let anchoUtil = width - 2 * margenH;
+    
+    // 1. Detectar clic en apoyos para cambiar de LADO (Arriba/Abajo)
+    for (let ap of apoyos) {
+        if (dist(mouseX, mouseY, margenH + ap.x_rel * anchoUtil, vigaY + (ap.lado * 20)) < 40) {
+            ap.lado *= -1; // Cambia entre 1 y -1
+            dragging = ap;
+            return false;
+        }
+    }
+
     if (seleccionado && mouseY > vigaY + 90) return; 
 
+    // 2. Detectar clic en cargas distribuidas
     for (let d of distribuidas) {
         if (dist(mouseX, mouseY, margenH + (d.x1 + d.x2) / 2 * anchoUtil, vigaY) < 25) {
             if (seleccionado === d) { d.dir *= -1; }
-            seleccionado = d; inputF.value(d.f);
+            seleccionado = d; 
+            inputF.value(d.f);
             inputDist.value(((d.x2 - d.x1) * vigaLongitudM).toFixed(2));
-            dragging = d; return false;
+            dragging = d; 
+            return false;
         }
     }
+
+    // 3. Detectar clic en cargas puntuales
     for (let c of cargas) {
         if (dist(mouseX, mouseY, margenH + c.x_rel * anchoUtil, vigaY) < 30) {
-            seleccionado = c; inputF.value(c.f); inputAng.value(c.ang);
-            dragging = c; return false;
+            seleccionado = c; 
+            inputF.value(c.f); 
+            inputAng.value(c.ang);
+            dragging = c; 
+            return false;
         }
     }
-    for (let ap of apoyos) if (dist(mouseX, mouseY, margenH + ap.x_rel * anchoUtil, vigaY) < 35) { dragging = ap; seleccionado = null; }
     
-    if (mouseY < vigaY + 60 || mouseY > vigaY + 300) {
-        seleccionado = null; inputF.hide(); inputAng.hide(); inputDist.hide(); btnOk.hide();
+    // Reset de selección si se toca fuera
+    if (mouseY < vigaY - 100 || mouseY > vigaY + 300) {
+        seleccionado = null; 
+        inputF.hide(); inputAng.hide(); inputDist.hide(); btnOk.hide();
     }
 }
 
@@ -224,10 +243,23 @@ function dibujarApoyos() {
     let anchoUtil = width - 2 * margenH;
     apoyos.forEach(ap => {
         let x = margenH + ap.x_rel * anchoUtil;
-        let yBase = vigaY + (ap.lado * 5);
-        push(); translate(x, yBase); if (ap.lado === -1) scale(1, -1);
-        fill(ap.tipo === 'fijo' ? '#3498db' : '#bdc3c7'); stroke(50); strokeWeight(2);
-        if (ap.tipo === 'fijo') triangle(-15, 25, 15, 25, 0, 0); else { ellipse(0, 10, 18, 18); line(-15, 25, 15, 25); }
+        // Ajuste de posición: si lado es -1, sube; si es 1, baja.
+        let yBase = vigaY + (ap.lado * 5); 
+        
+        push(); 
+        translate(x, yBase); 
+        if (ap.lado === -1) scale(1, -1); // Invierte el dibujo hacia arriba
+        
+        fill(ap.tipo === 'fijo' ? '#3498db' : '#bdc3c7'); 
+        stroke(50); 
+        strokeWeight(2);
+        
+        if (ap.tipo === 'fijo') {
+            triangle(-15, 25, 15, 25, 0, 0); 
+        } else { 
+            ellipse(0, 10, 18, 18); 
+            line(-15, 25, 15, 25); 
+        }
         pop();
     });
 }
