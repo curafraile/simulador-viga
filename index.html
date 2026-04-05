@@ -91,14 +91,45 @@ function draw() {
     textAlign(LEFT); fill(50); noStroke(); textSize(12);
     text("Longitud Total (m):", 20, 40);
 
+    // 1. Dibujamos la viga original (recta)
     strokeWeight(10); stroke(60);
     line(margenH, vigaY, width - margenH, vigaY);
-    
+
+    // --- NUEVO: DIBUJO DE LA ELÁSTICA (FLECHA) ---
+    // Esto dibuja la curva azul que muestra cómo se dobla la viga
+    stroke(0, 150, 255, 180); // Color azul transparente
+    strokeWeight(3);
+    noFill();
+    beginShape();
+    let EI = 210e9 * 171e-8; // Rigidez estándar
+    for (let i = 0; i <= (width - 2 * margenH); i += 5) {
+        let x_m = pxToM(margenH + i);
+        // Usamos una escala visual para que los 500mm se vean en pantalla
+        // Si fMax es 500mm, aquí lo dividimos por un factor para que no tape todo
+        let f_visual = (obtenerMomentoEn(x_m) * sq(vigaLongitudM)) / (9.6 * EI) * 50; 
+        vertex(margenH + i, vigaY + f_visual);
+    }
+    endShape();
+
+    // Dibuja una flechita indicando la deformación máxima
+    if (xMmax > 0) {
+        let xPxMax = margenH + (xMmax / vigaLongitudM) * (width - 2 * margenH);
+        let f_mm = (momentoMax * sq(vigaLongitudM)) / (9.6 * EI) * 1000;
+        stroke(0, 100, 255); strokeWeight(2);
+        line(xPxMax, vigaY, xPxMax, vigaY + (f_mm * 0.1)); // Flecha visual
+        fill(0, 100, 255); noStroke(); textAlign(CENTER);
+        text(f_mm.toFixed(1) + " mm", xPxMax, vigaY + (f_mm * 0.1) + 15);
+    }
+    // ----------------------------------------------
+
     dibujarCotasRelativas();
     dibujarApoyos();
     dibujarDistribuidas();
     dibujarCargas();
     calcularYDibujarCalculos();
+
+    // ... resto de tu código de paneles de input ...
+}
 
     if (seleccionado) {
         let anchoUtil = width - 2 * margenH;
