@@ -189,20 +189,23 @@ function touchStarted() {
     let ahora = millis();
 
     // 1. LÓGICA PARA APOYOS (Diferencia Clic de Doble Clic)
+   // --- ESTO ES LO QUE TENÉS QUE PEGAR ---
     for (let ap of apoyos) {
-        // Detectamos el toque cerca del apoyo considerando su lado
-        let yApoyo = vigaY + (ap.lado * 20);
-        if (dist(mouseX, mouseY, margenH + ap.x_rel * anchoUtil, yApoyo) < 45) {
+        let xApoyo = margenH + ap.x_rel * anchoUtil;
+        
+        // Detectamos el clic siempre sobre el eje de la viga (vigaY)
+        // Esto hace que en PC sea 100% preciso porque no "salta" el área de clic
+        if (dist(mouseX, mouseY, xApoyo, vigaY) < 45) {
             
             if (ahora - lastClickTime < 300) { 
-                // SI ES DOBLE CLICK: Cambia Tipo (Fijo/Móvil)
-                clearTimeout(clickTimer); // Cancela el salto de lado
+                // DOBLE CLICK: Cambia Tipo (Fijo/Móvil)
+                clearTimeout(clickTimer);
                 ap.tipo = (ap.tipo === 'fijo') ? 'movil' : 'fijo';
                 lastClickTime = 0; 
             } else {
-                // SI ES CLICK SIMPLE: Espera 250ms para ver si viene otro toque
+                // CLICK SIMPLE: Espera 250ms para cambiar de lado
                 clickTimer = setTimeout(() => {
-                    ap.lado *= -1; // Recién acá cambia de lado
+                    ap.lado *= -1; 
                 }, 250);
             }
             
@@ -211,6 +214,7 @@ function touchStarted() {
             return false;
         }
     }
+// ---------------------------------------
 
     // 2. RESTO DE CARGAS (Mantenemos tu lógica que ya funciona)
     if (seleccionado && mouseY > vigaY + 90) return; 
