@@ -141,14 +141,30 @@ function draw() {
     endShape();
 
     // 3. Indicador numérico de la flecha máxima
+    // 3. Indicador numérico de la flecha máxima (CORREGIDO)
     if (xMmax > 0) {
         let xPxMax = margenH + (xMmax / vigaLongitudM) * (width - 2 * margenH);
+        let EI = 210e9 * 171e-8;
         let f_mm = (momentoMax * sq(vigaLongitudM)) / (9.6 * EI) * 1000;
-        stroke(0, 100, 255); strokeWeight(2);
-        // Dibujamos una línea que une la viga con la curva
-        line(xPxMax, vigaY, xPxMax, vigaY + (f_mm * 0.1)); 
-        fill(0, 100, 255); noStroke(); textAlign(CENTER);
-        text(abs(f_mm).toFixed(1) + " mm", xPxMax, vigaY + (f_mm * 0.1) + 15);
+        
+        // Calculamos el límite L/300
+        let limite_mm = (vigaLongitudM * 1000) / 300;
+
+        stroke(0, 100, 255); 
+        strokeWeight(2);
+        
+        // Dibujamos la línea de cota de la flecha (más larga para que se vea)
+        line(xPxMax, vigaY, xPxMax, vigaY + (f_mm * 0.15)); 
+        
+        // Desplazamos el texto hacia abajo del final de la flecha
+        fill(0, 50, 200); 
+        noStroke(); 
+        textAlign(CENTER);
+        textSize(13);
+        
+        // Mostramos el valor real y la fórmula del límite para que comparen
+        let textoFlecha = `Flecha: ${abs(f_mm).toFixed(1)} mm\n(Límite L/300 = ${limite_mm.toFixed(2)} mm)`;
+        text(textoFlecha, xPxMax, vigaY + (f_mm * 0.15) + 25);
     }
 
     // 4. Llamado a funciones de dibujo técnico
