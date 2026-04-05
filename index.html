@@ -50,13 +50,14 @@ let seleccionado = null;
 let lastClickTime = 0;
 let clickTimer;
 
-// --- VARIABLES PARA EL TUTOR INTELIGENTE ---
+// --- VARIABLES GLOBALES PARA EL TUTOR (Solo una vez) ---
 let Ray = 0, Rby = 0, Rax = 0;
 let momentoMax = 0, xMmax = 0;
-// -------------------------------------------
 
 let inputF, inputAng, inputLong, inputDist, btnOk;
+
 function setup() {
+    
     createCanvas(windowWidth, windowHeight);
     actualizarDimensiones();
 
@@ -484,7 +485,7 @@ function dibujarDiagrama(yBase, datos, titulo, col, extraX = []) {
     });
 }
 
-function touchEnded() { dragging = null; }
+//function touchEnded() { dragging = null; }
 //function doubleClicked() {
    // let anchoUtil = width - 2 * margenH;
    // apoyos.forEach(ap => { 
@@ -494,6 +495,51 @@ function touchEnded() { dragging = null; }
 	//});
 //}
 // Registro del Service Worker para modo Offline
+
+function generarInformeRatificador() {
+    const informeDiv = document.getElementById('contenedor-informe');
+    const cuerpo = document.getElementById('cuerpo-informe');
+    
+    // Hace aparecer el cuadro blanco
+    informeDiv.style.display = 'block';
+
+    let xA = apoyos[0].x_rel * vigaLongitudM;
+    let xB = apoyos[1].x_rel * vigaLongitudM;
+
+    let texto = "🔍 **1. RATIFICACIÓN DE VALORES (Compará con tu hoja):**\n";
+    texto += `➤ Reacción Ra: ${Ray.toFixed(1)} N | Reacción Rb: ${Rby.toFixed(1)} N\n`;
+    texto += `➤ Momento Máximo: ${momentoMax.toFixed(1)} Nm (en x = ${xMmax.toFixed(2)}m)\n\n`;
+
+    texto += "🧶 **2. ANÁLISIS DE LAS FIBRAS (Física):**\n";
+    // Detectamos si el peligro está en el voladizo o en el centro
+    if (xMmax < Math.min(xA, xB) || xMmax > Math.max(xA, xB)) {
+        texto += "⚠️ **ALERTA DE VOLADIZO:** El esfuerzo máximo está FUERA de los apoyos.\n";
+        texto += "👉 La viga arquea hacia ARRIBA. Las fibras SUPERIORES sufren TRACCIÓN (se estiran).\n";
+        texto += "💡 ¿El signo del momento te dio negativo en tu hoja? ¡Correcto!\n\n";
+    } else {
+        texto += "✅ **TRAMO CENTRAL:** El esfuerzo máximo está entre los apoyos.\n";
+        texto += "👉 La viga se 'empanza'. Las fibras de ABAJO sufren TRACCIÓN.\n\n";
+    }
+
+    
+
+    // Diagnóstico de Seguridad L/300 (Para un IPN 100 de acero)
+    let fMax = (Math.abs(momentoMax) * Math.pow(vigaLongitudM, 2)) / (9.6 * 210e9 * 171e-8) * 1000;
+    let limite = (vigaLongitudM * 1000) / 300;
+
+    texto += "🛡️ **3. DIAGNÓSTICO DE SEGURIDAD:**\n";
+    if (fMax > limite) {
+        texto += `❌ FALLA: La flecha (${fMax.toFixed(2)}mm) supera el límite de ${limite.toFixed(2)}mm.\n`;
+        texto += "💡 CONSEJO: El perfil es muy 'flaco'. Probá con un IPN más alto.";
+        informeDiv.style.borderLeft = "10px solid #e74c3c"; // Borde Rojo
+    } else {
+        texto += `✅ SEGURA: La deformación (${fMax.toFixed(2)}mm) es aceptable.`;
+        informeDiv.style.borderLeft = "10px solid #2ecc71"; // Borde Verde
+    }
+
+    cuerpo.innerHTML = texto;
+    informeDiv.scrollIntoView({ behavior: 'smooth' });
+}
 
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
