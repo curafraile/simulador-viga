@@ -140,41 +140,37 @@ function draw() {
     }
     endShape();
 
-    // 3. Indicador numérico de la flecha máxima (MEJOR SEPARACIÓN)
+    // 3. Indicador de flecha máxima (DESPLAZADO LATERALMENTE)
     if (xMmax > 0) {
         let xPxMax = margenH + (xMmax / vigaLongitudM) * (width - 2 * margenH);
         let EI = 210e9 * 171e-8;
         let f_mm = (momentoMax * sq(vigaLongitudM)) / (9.6 * EI) * 1000;
         let limite_mm = (vigaLongitudM * 1000) / 300;
 
-        // --- AJUSTE TÉCNICO DE VISIBILIDAD ---
-        // 'offsetText' define cuánto baja el texto desde la viga original. 
-        // 80 píxeles es una buena distancia para que no pise nada.
-        let offsetText = 80; 
-        // -------------------------------------
+        // --- PARÁMETROS DE POSICIÓN ---
+        let shiftX = 80;  // Lo movemos 80px a la derecha para que no tape la carga
+        let shiftY = 100; // Lo bajamos 100px para que esté lejos de la viga
+        // ------------------------------
 
-        // Dibujamos la línea de cota vertical (azul fino)
-        stroke(0, 100, 255, 150); // Azul suave
+        // Dibujamos una línea punteada o fina que une la carga con el texto
+        stroke(0, 100, 255, 100);
         strokeWeight(1);
-        line(xPxMax, vigaY, xPxMax, vigaY + offsetText); 
+        line(xPxMax, vigaY, xPxMax + shiftX, vigaY + shiftY);
 
-        // Dibujamos un fondo blanco semitransparente detrás del texto para que se lea perfecto
+        // Fondo para legibilidad
         noStroke();
-        fill(255, 230); // Blanco con opacidad (230 de 255)
+        fill(255, 240); 
         rectMode(CENTER);
-        // Rectángulo de fondo para el texto (ancho: 160, alto: 40)
-        rect(xPxMax, vigaY + offsetText + 15, 160, 40, 5); 
+        rect(xPxMax + shiftX, vigaY + shiftY, 170, 45, 8);
 
-        // Dibujamos el texto (azul oscuro y más grande)
-        fill(0, 50, 180); 
-        textAlign(CENTER, CENTER); // Alineación centrada vertical y horizontal
-        textSize(14); // Un punto más grande para mejor lectura
-        
-        let textoFlecha = `Flecha: ${abs(f_mm).toFixed(1)} mm\n(L/300 = ${limite_mm.toFixed(2)} mm)`;
-        text(textoFlecha, xPxMax, vigaY + offsetText + 15);
-        
-        // Restauramos modos por defecto para no romper otros dibujos
-        rectMode(CORNER); 
+        // Texto técnico
+        fill(0, 50, 200);
+        textAlign(CENTER, CENTER);
+        textSize(13);
+        let mensaje = `Flecha: ${abs(f_mm).toFixed(1)} mm\n(Límite L/300: ${limite_mm.toFixed(2)} mm)`;
+        text(mensaje, xPxMax + shiftX, vigaY + shiftY);
+
+        rectMode(CORNER); // Reset para no afectar otros dibujos
     }
 
     // 4. Llamado a funciones de dibujo técnico
