@@ -86,51 +86,79 @@ function pxToM(px) {
     return (px - margenH) / anchoUtil * vigaLongitudM;
 }
 
+// --- PEGAR ESTA FUNCIÓN JUSTO ANTES DE FUNCTION DRAW() ---
+function obtenerMomentoEn(x_m) {
+    let xA_m = xRelToM(apoyos[0].x_rel);
+    let xB_m = xRelToM(apoyos[1].x_rel);
+    let m = 0;
+    
+    // Sumamos momentos de reacciones
+    if (x_m > xA_m) m += Ray * (x_m - xA_m);
+    if (x_m > xB_m) m += Rby * (x_m - xB_m);
+    
+    // Restamos momentos de cargas puntuales
+    cargas.forEach(c => {
+        let cx_m = xRelToM(c.x_rel);
+        if (x_m > cx_m) m -= (c.f * sin(radians(360 - c.ang))) * (x_m - cx_m);
+    });
+
+    // Restamos momentos de cargas distribuidas
+    distribuidas.forEach(d => {
+        let xd1_m = xRelToM(d.x1), xd2_m = xRelToM(d.x2);
+        if (x_m > xd1_m) {
+            let largo = xd2_m - xd1_m;
+            let usado = Math.min(x_m, xd2_m) - xd1_m;
+            let F_parcial = d.f * (usado / largo) * d.dir;
+            let centroide = xd1_m + usado / 2;
+            m -= F_parcial * (x_m - centroide);
+        }
+    });
+    return m;
+}
+
 function draw() {
     background(245);
     textAlign(LEFT); fill(50); noStroke(); textSize(12);
     text("Longitud Total (m):", 20, 40);
 
-    // 1. Dibujamos la viga original (recta)
+    // 1. Viga recta original (Gris)
     strokeWeight(10); stroke(60);
     line(margenH, vigaY, width - margenH, vigaY);
 
-    // --- NUEVO: DIBUJO DE LA ELÁSTICA (FLECHA) ---
-    // Esto dibuja la curva azul que muestra cómo se dobla la viga
-    stroke(0, 150, 255, 180); // Color azul transparente
+    // 2. Dibujo de la Elástica (La curva azul de deformación)
+    stroke(0, 150, 255, 180); 
     strokeWeight(3);
     noFill();
     beginShape();
-    let EI = 210e9 * 171e-8; // Rigidez estándar
+    let EI = 210e9 * 171e-8; // Rigidez del acero
     for (let i = 0; i <= (width - 2 * margenH); i += 5) {
         let x_m = pxToM(margenH + i);
-        // Usamos una escala visual para que los 500mm se vean en pantalla
-        // Si fMax es 500mm, aquí lo dividimos por un factor para que no tape todo
-        let f_visual = (obtenerMomentoEn(x_m) * sq(vigaLongitudM)) / (9.6 * EI) * 50; 
+        // Calculamos la curva basada en el momento flector
+        let m_local = obtenerMomentoEn(x_m);
+        let f_visual = (m_local * sq(vigaLongitudM)) / (9.6 * EI) * 50; 
         vertex(margenH + i, vigaY + f_visual);
     }
     endShape();
 
-    // Dibuja una flechita indicando la deformación máxima
+    // 3. Indicador numérico de la flecha máxima
     if (xMmax > 0) {
         let xPxMax = margenH + (xMmax / vigaLongitudM) * (width - 2 * margenH);
         let f_mm = (momentoMax * sq(vigaLongitudM)) / (9.6 * EI) * 1000;
         stroke(0, 100, 255); strokeWeight(2);
-        line(xPxMax, vigaY, xPxMax, vigaY + (f_mm * 0.1)); // Flecha visual
+        // Dibujamos una línea que une la viga con la curva
+        line(xPxMax, vigaY, xPxMax, vigaY + (f_mm * 0.1)); 
         fill(0, 100, 255); noStroke(); textAlign(CENTER);
-        text(f_mm.toFixed(1) + " mm", xPxMax, vigaY + (f_mm * 0.1) + 15);
+        text(abs(f_mm).toFixed(1) + " mm", xPxMax, vigaY + (f_mm * 0.1) + 15);
     }
-    // ----------------------------------------------
 
+    // 4. Llamado a funciones de dibujo técnico
     dibujarCotasRelativas();
     dibujarApoyos();
     dibujarDistribuidas();
     dibujarCargas();
     calcularYDibujarCalculos();
 
-    // ... resto de tu código de paneles de input ...
-}
-
+    // 5. Panel de edición (Asegurate que esté dentro de la llave de draw)
     if (seleccionado) {
         let anchoUtil = width - 2 * margenH;
         let x_pos = seleccionado.x_rel !== undefined ? seleccionado.x_rel : (seleccionado.x1 + seleccionado.x2) / 2;
@@ -154,7 +182,7 @@ function draw() {
             btnOk.position(panelX + 60, panelY + 65).show();
         }
     }
-}
+} // <--- ESTA ES LA ÚNICA LLAVE QUE CIERRA EL DRAW
 
 function dibujarCotasRelativas() {
     let anchoUtil = width - 2 * margenH;
