@@ -135,7 +135,9 @@ function draw() {
         let x_m = pxToM(margenH + i);
         // Calculamos la curva basada en el momento flector
         let m_local = obtenerMomentoEn(x_m);
-        let f_visual = (m_local * sq(vigaLongitudM)) / (9.6 * EI) * 50; 
+		// AGREGAMOS EL SIGNO MENOS AQUÍ PARA INVERTIR EL EJE Y DEL DIBUJO
+        //let f_visual = (m_local * sq(vigaLongitudM)) / (9.6 * EI) * 50; 
+		let f_visual = -(m_local * sq(vigaLongitudM)) / (9.6 * EI) * 50;
         vertex(margenH + i, vigaY + f_visual);
     }
     endShape();
