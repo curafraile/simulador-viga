@@ -39,6 +39,8 @@ let cargas = [];
 let distribuidas = [];
 let dragging = null;
 let seleccionado = null;
+let lastClickTime = 0; // Para medir el tiempo entre clics
+let clickTimer;        // Para manejar la espera del clic simple
 
 let inputF, inputAng, inputLong, inputDist, btnOk;
 
@@ -184,19 +186,35 @@ function guardarCambios() {
 
 function touchStarted() {
     let anchoUtil = width - 2 * margenH;
-    
-    // 1. Detectar clic en apoyos para cambiar de LADO (Arriba/Abajo)
+    let ahora = millis();
+
+    // 1. LÓGICA PARA APOYOS (Diferencia Clic de Doble Clic)
     for (let ap of apoyos) {
-        if (dist(mouseX, mouseY, margenH + ap.x_rel * anchoUtil, vigaY + (ap.lado * 20)) < 40) {
-            ap.lado *= -1; // Cambia entre 1 y -1
+        // Detectamos el toque cerca del apoyo considerando su lado
+        let yApoyo = vigaY + (ap.lado * 20);
+        if (dist(mouseX, mouseY, margenH + ap.x_rel * anchoUtil, yApoyo) < 45) {
+            
+            if (ahora - lastClickTime < 300) { 
+                // SI ES DOBLE CLICK: Cambia Tipo (Fijo/Móvil)
+                clearTimeout(clickTimer); // Cancela el salto de lado
+                ap.tipo = (ap.tipo === 'fijo') ? 'movil' : 'fijo';
+                lastClickTime = 0; 
+            } else {
+                // SI ES CLICK SIMPLE: Espera 250ms para ver si viene otro toque
+                clickTimer = setTimeout(() => {
+                    ap.lado *= -1; // Recién acá cambia de lado
+                }, 250);
+            }
+            
+            lastClickTime = ahora;
             dragging = ap;
             return false;
         }
     }
 
+    // 2. RESTO DE CARGAS (Mantenemos tu lógica que ya funciona)
     if (seleccionado && mouseY > vigaY + 90) return; 
 
-    // 2. Detectar clic en cargas distribuidas
     for (let d of distribuidas) {
         if (dist(mouseX, mouseY, margenH + (d.x1 + d.x2) / 2 * anchoUtil, vigaY) < 25) {
             if (seleccionado === d) { d.dir *= -1; }
@@ -208,7 +226,6 @@ function touchStarted() {
         }
     }
 
-    // 3. Detectar clic en cargas puntuales
     for (let c of cargas) {
         if (dist(mouseX, mouseY, margenH + c.x_rel * anchoUtil, vigaY) < 30) {
             seleccionado = c; 
@@ -217,12 +234,6 @@ function touchStarted() {
             dragging = c; 
             return false;
         }
-    }
-    
-    // Reset de selección si se toca fuera
-    if (mouseY < vigaY - 100 || mouseY > vigaY + 300) {
-        seleccionado = null; 
-        inputF.hide(); inputAng.hide(); inputDist.hide(); btnOk.hide();
     }
 }
 
