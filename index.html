@@ -190,25 +190,22 @@ function touchStarted() {
 
     // 1. LÓGICA PARA APOYOS (Diferencia Clic de Doble Clic)
    // --- ESTO ES LO QUE TENÉS QUE PEGAR ---
+    // 1. LÓGICA PARA APOYOS (CON ESPERA PARA EVITAR EL SALTO)
     for (let ap of apoyos) {
         let xApoyo = margenH + ap.x_rel * anchoUtil;
-        
-        // Detectamos el clic siempre sobre el eje de la viga (vigaY)
-        // Esto hace que en PC sea 100% preciso porque no "salta" el área de clic
         if (dist(mouseX, mouseY, xApoyo, vigaY) < 45) {
-            
+            let ahora = millis();
             if (ahora - lastClickTime < 300) { 
-                // DOBLE CLICK: Cambia Tipo (Fijo/Móvil)
-                clearTimeout(clickTimer);
+                // DOBLE CLICK: Cambia Tipo
+                clearTimeout(clickTimer); // Cancela el salto de lado
                 ap.tipo = (ap.tipo === 'fijo') ? 'movil' : 'fijo';
                 lastClickTime = 0; 
             } else {
-                // CLICK SIMPLE: Espera 250ms para cambiar de lado
+                // POSIBLE CLICK SIMPLE: Espera 250ms antes de mover
                 clickTimer = setTimeout(() => {
                     ap.lado *= -1; 
                 }, 250);
             }
-            
             lastClickTime = ahora;
             dragging = ap;
             return false;
@@ -462,14 +459,14 @@ function dibujarDiagrama(yBase, datos, titulo, col, extraX = []) {
 }
 
 function touchEnded() { dragging = null; }
-function doubleClicked() {
-    let anchoUtil = width - 2 * margenH;
-    apoyos.forEach(ap => { 
-	if (dist(mouseX, mouseY, margenH + ap.x_rel * anchoUtil, vigaY) < 50) {
-        ap.tipo = ap.tipo === 'fijo' ? 'movil' : 'fijo';
-    }
-	});
-}
+//function doubleClicked() {
+   // let anchoUtil = width - 2 * margenH;
+   // apoyos.forEach(ap => { 
+	//if (dist(mouseX, mouseY, margenH + ap.x_rel * anchoUtil, vigaY) < 50) {
+       // ap.tipo = ap.tipo === 'fijo' ? 'movil' : 'fijo';
+   // }
+	//});
+//}
 // Registro del Service Worker para modo Offline
 
     if ('serviceWorker' in navigator) {
