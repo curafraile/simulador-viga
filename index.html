@@ -26,6 +26,14 @@
     <button class="btn-add" onclick="agregarCarga()">+ Carga</button>
     <button class="btn-dist" onclick="agregarDistribuida()">+ Distr</button>
     <button class="btn-reset" onclick="reiniciarCargas()">Reset</button>
+	
+	<button class="btn-info" onclick="generarInformeRatificador()" style="background: #e1f5fe;">📋 Analizar</button>
+</div> <div id="contenedor-informe" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 80%; max-height: 250px; overflow-y: auto; background: white; border: 2px solid #3498db; border-radius: 10px; padding: 20px; display: none; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+    <h3 style="margin-top:0; color:#2980b9;">👨‍🏫 Tutor Técnico ETHA</h3>
+    <div id="cuerpo-informe" style="white-space: pre-line; font-family: monospace; font-size: 14px;"></div>
+    <button onclick="document.getElementById('contenedor-informe').style.display='none'" style="margin-top:10px; float:right;">Cerrar</button>
+</div>
+	
 </div>
 
 <script>
@@ -39,11 +47,15 @@ let cargas = [];
 let distribuidas = [];
 let dragging = null;
 let seleccionado = null;
-let lastClickTime = 0; // Para medir el tiempo entre clics
-let clickTimer;        // Para manejar la espera del clic simple
+let lastClickTime = 0;
+let clickTimer;
+
+// --- VARIABLES PARA EL TUTOR INTELIGENTE ---
+let Ray = 0, Rby = 0, Rax = 0;
+let momentoMax = 0, xMmax = 0;
+// -------------------------------------------
 
 let inputF, inputAng, inputLong, inputDist, btnOk;
-
 function setup() {
     createCanvas(windowWidth, windowHeight);
     actualizarDimensiones();
@@ -300,9 +312,9 @@ function calcularYDibujarCalculos() {
     });
     
     let distanciaAB = xB_m - xA_m;
-    let Rby = sumM_A / distanciaAB;
-    let Ray = sumFy - Rby;
-    let Rax = -sumFx;
+    Rby = sumM_A / distanciaAB;
+    Ray = sumFy - Rby;
+    Rax = -sumFx;
 
     noStroke(); textAlign(CENTER); textSize(11);
     let ra_fix = apoyos[0].tipo === 'fijo';
@@ -393,19 +405,24 @@ function drawCortante(Ray, Rby, xA, xB) {
 }
 
 function drawMomento(Ray, Rby, xA, xB, vVals) {
-    let baselineM = vigaY + 480; let anchoUtil = width - 2 * margenH;
+    let baselineM = vigaY + 480; 
+    let anchoUtil = width - 2 * margenH;
     let vals = [];
+
     for(let x = margenH; x <= width - margenH; x += 2) {
         let x_m = pxToM(x);
         let xA_m = xRelToM(apoyos[0].x_rel);
         let xB_m = xRelToM(apoyos[1].x_rel);
         let m = 0; 
+        
         if (x_m > xA_m) m += Ray * (x_m - xA_m); 
         if (x_m > xB_m) m += Rby * (x_m - xB_m); 
+        
         cargas.forEach(c => { 
             let cx_m = xRelToM(c.x_rel);
             if (x_m > cx_m) m -= (c.f * sin(radians(360 - c.ang))) * (x_m - cx_m); 
         });
+
         distribuidas.forEach(d => {
             let xd1_m = xRelToM(d.x1), xd2_m = xRelToM(d.x2);
             if (x_m > xd1_m) {
@@ -418,6 +435,15 @@ function drawMomento(Ray, Rby, xA, xB, vVals) {
         });
         vals.push(m);
     }
+    
+    // --- NUEVO: CAPTURA DE DATOS PARA EL TUTOR ---
+    if (vals.length > 0) {
+        let absVals = vals.map(Math.abs);
+        let indiceMax = absVals.indexOf(Math.max(...absVals));
+        momentoMax = vals[indiceMax]; // Guardamos el valor real (con signo)
+        xMmax = pxToM(margenH + indiceMax * 2); // Guardamos la posición en metros
+    }
+    // --------------------------------------------
     
     let extraPoints = [];
     for(let i=1; i < vVals.length; i++) {
