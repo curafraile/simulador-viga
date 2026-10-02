@@ -17,6 +17,7 @@
         .btn-add { background: #d4edda; }
         .btn-dist { background: #fff3cd; }
         .btn-reset { background: #f8d7da; }
+        .btn-info { background: #e1f5fe; }
         input { font-size: 16px !important; }
     </style>
 </head>
@@ -26,14 +27,13 @@
     <button class="btn-add" onclick="agregarCarga()">+ Carga</button>
     <button class="btn-dist" onclick="agregarDistribuida()">+ Distr</button>
     <button class="btn-reset" onclick="reiniciarCargas()">Reset</button>
-	
-	<button class="btn-info" onclick="generarInformeRatificador()" style="background: #e1f5fe;">📋 Analizar</button>
-</div> <div id="contenedor-informe" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 80%; max-height: 250px; overflow-y: auto; background: white; border: 2px solid #3498db; border-radius: 10px; padding: 20px; display: none; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+    <button class="btn-info" onclick="generarInformeRatificador()">📋 Analizar</button>
+</div>
+
+<div id="contenedor-informe" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 80%; max-height: 250px; overflow-y: auto; background: white; border: 2px solid #3498db; border-radius: 10px; padding: 20px; display: none; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
     <h3 style="margin-top:0; color:#2980b9;">👨‍🏫 Tutor Técnico ETHA</h3>
     <div id="cuerpo-informe" style="white-space: pre-line; font-family: monospace; font-size: 14px;"></div>
     <button onclick="document.getElementById('contenedor-informe').style.display='none'" style="margin-top:10px; float:right;">Cerrar</button>
-</div>
-	
 </div>
 
 <script>
@@ -50,14 +50,13 @@ let seleccionado = null;
 let lastClickTime = 0;
 let clickTimer;
 
-// --- VARIABLES GLOBALES PARA EL TUTOR (Solo una vez) ---
+// --- VARIABLES GLOBALES PARA EL TUTOR ---
 let Ray = 0, Rby = 0, Rax = 0;
 let momentoMax = 0, xMmax = 0;
 
 let inputF, inputAng, inputLong, inputDist, btnOk;
 
 function setup() {
-    
     createCanvas(windowWidth, windowHeight);
     actualizarDimensiones();
 
@@ -86,23 +85,19 @@ function pxToM(px) {
     return (px - margenH) / anchoUtil * vigaLongitudM;
 }
 
-// --- PEGAR ESTA FUNCIÓN JUSTO ANTES DE FUNCTION DRAW() ---
 function obtenerMomentoEn(x_m) {
     let xA_m = xRelToM(apoyos[0].x_rel);
     let xB_m = xRelToM(apoyos[1].x_rel);
     let m = 0;
     
-    // Sumamos momentos de reacciones
     if (x_m > xA_m) m += Ray * (x_m - xA_m);
     if (x_m > xB_m) m += Rby * (x_m - xB_m);
     
-    // Restamos momentos de cargas puntuales
     cargas.forEach(c => {
         let cx_m = xRelToM(c.x_rel);
         if (x_m > cx_m) m -= (c.f * sin(radians(360 - c.ang))) * (x_m - cx_m);
     });
 
-    // Restamos momentos de cargas distribuidas
     distribuidas.forEach(d => {
         let xd1_m = xRelToM(d.x1), xd2_m = xRelToM(d.x2);
         if (x_m > xd1_m) {
@@ -121,68 +116,55 @@ function draw() {
     textAlign(LEFT); fill(50); noStroke(); textSize(12);
     text("Longitud Total (m):", 20, 40);
 
-    // 1. Viga recta original (Gris)
     strokeWeight(10); stroke(60);
     line(margenH, vigaY, width - margenH, vigaY);
 
-    // 2. Dibujo de la Elástica (La curva azul de deformación)
     stroke(0, 150, 255, 180); 
     strokeWeight(3);
     noFill();
     beginShape();
-    let EI = 210e9 * 171e-8; // Rigidez del acero
+    let EI = 210e9 * 171e-8;
     for (let i = 0; i <= (width - 2 * margenH); i += 5) {
         let x_m = pxToM(margenH + i);
-        // Calculamos la curva basada en el momento flector
         let m_local = obtenerMomentoEn(x_m);
-		// AGREGAMOS EL SIGNO MENOS AQUÍ PARA INVERTIR EL EJE Y DEL DIBUJO
-        //let f_visual = (m_local * sq(vigaLongitudM)) / (9.6 * EI) * 50; 
-		let f_visual = -(m_local * sq(vigaLongitudM)) / (9.6 * EI) * 50;
+        let f_visual = -(m_local * sq(vigaLongitudM)) / (9.6 * EI) * 50;
         vertex(margenH + i, vigaY + f_visual);
     }
     endShape();
 
-    // 3. Indicador de flecha máxima (DESPLAZADO LATERALMENTE)
     if (xMmax > 0) {
         let xPxMax = margenH + (xMmax / vigaLongitudM) * (width - 2 * margenH);
         let EI = 210e9 * 171e-8;
         let f_mm = (momentoMax * sq(vigaLongitudM)) / (9.6 * EI) * 1000;
         let limite_mm = (vigaLongitudM * 1000) / 300;
 
-        // --- PARÁMETROS DE POSICIÓN ---
-        let shiftX = 80;  // Lo movemos 80px a la derecha para que no tape la carga
-        let shiftY = 100; // Lo bajamos 100px para que esté lejos de la viga
-        // ------------------------------
+        let shiftX = 80;
+        let shiftY = 100;
 
-        // Dibujamos una línea punteada o fina que une la carga con el texto
         stroke(0, 100, 255, 100);
         strokeWeight(1);
         line(xPxMax, vigaY, xPxMax + shiftX, vigaY + shiftY);
 
-        // Fondo para legibilidad
         noStroke();
         fill(255, 240); 
         rectMode(CENTER);
         rect(xPxMax + shiftX, vigaY + shiftY, 170, 45, 8);
 
-        // Texto técnico
         fill(0, 50, 200);
         textAlign(CENTER, CENTER);
         textSize(13);
         let mensaje = `Flecha: ${abs(f_mm).toFixed(1)} mm\n(Límite L/300: ${limite_mm.toFixed(2)} mm)`;
         text(mensaje, xPxMax + shiftX, vigaY + shiftY);
 
-        rectMode(CORNER); // Reset para no afectar otros dibujos
+        rectMode(CORNER);
     }
 
-    // 4. Llamado a funciones de dibujo técnico
     dibujarCotasRelativas();
     dibujarApoyos();
     dibujarDistribuidas();
     dibujarCargas();
     calcularYDibujarCalculos();
 
-    // 5. Panel de edición (Asegurate que esté dentro de la llave de draw)
     if (seleccionado) {
         let anchoUtil = width - 2 * margenH;
         let x_pos = seleccionado.x_rel !== undefined ? seleccionado.x_rel : (seleccionado.x1 + seleccionado.x2) / 2;
@@ -206,7 +188,7 @@ function draw() {
             btnOk.position(panelX + 60, panelY + 65).show();
         }
     }
-} // <--- ESTA ES LA ÚNICA LLAVE QUE CIERRA EL DRAW
+}
 
 function dibujarCotasRelativas() {
     let anchoUtil = width - 2 * margenH;
@@ -284,20 +266,15 @@ function touchStarted() {
     let anchoUtil = width - 2 * margenH;
     let ahora = millis();
 
-    // 1. LÓGICA PARA APOYOS (Diferencia Clic de Doble Clic)
-   // --- ESTO ES LO QUE TENÉS QUE PEGAR ---
-    // 1. LÓGICA PARA APOYOS (CON ESPERA PARA EVITAR EL SALTO)
     for (let ap of apoyos) {
         let xApoyo = margenH + ap.x_rel * anchoUtil;
         if (dist(mouseX, mouseY, xApoyo, vigaY) < 45) {
             let ahora = millis();
             if (ahora - lastClickTime < 300) { 
-                // DOBLE CLICK: Cambia Tipo
-                clearTimeout(clickTimer); // Cancela el salto de lado
+                clearTimeout(clickTimer);
                 ap.tipo = (ap.tipo === 'fijo') ? 'movil' : 'fijo';
                 lastClickTime = 0; 
             } else {
-                // POSIBLE CLICK SIMPLE: Espera 250ms antes de mover
                 clickTimer = setTimeout(() => {
                     ap.lado *= -1; 
                 }, 250);
@@ -307,9 +284,7 @@ function touchStarted() {
             return false;
         }
     }
-// ---------------------------------------
 
-    // 2. RESTO DE CARGAS (Mantenemos tu lógica que ya funciona)
     if (seleccionado && mouseY > vigaY + 90) return; 
 
     for (let d of distribuidas) {
@@ -351,12 +326,11 @@ function dibujarApoyos() {
     let anchoUtil = width - 2 * margenH;
     apoyos.forEach(ap => {
         let x = margenH + ap.x_rel * anchoUtil;
-        // Ajuste de posición: si lado es -1, sube; si es 1, baja.
         let yBase = vigaY + (ap.lado * 5); 
         
         push(); 
         translate(x, yBase); 
-        if (ap.lado === -1) scale(1, -1); // Invierte el dibujo hacia arriba
+        if (ap.lado === -1) scale(1, -1);
         
         fill(ap.tipo === 'fijo' ? '#3498db' : '#bdc3c7'); 
         stroke(50); 
@@ -445,7 +419,7 @@ function dibujarFlechaResultante(x, ry, rx) {
 }
 
 function drawAxial(Rax, xA, xB) {
-    let baseline = vigaY + 160; let anchoUtil = width - 2 * margenH;
+    let baseline = vigaY + 160;
     let vals = [];
     for (let x = margenH; x <= width - margenH; x += 2) {
         let x_m = pxToM(x);
@@ -464,7 +438,7 @@ function drawAxial(Rax, xA, xB) {
 }
 
 function drawCortante(Ray, Rby, xA, xB) {
-    let baseline = vigaY + 310; let anchoUtil = width - 2 * margenH;
+    let baseline = vigaY + 310;
     let vals = [];
     for (let x = margenH; x <= width - margenH; x += 2) {
         let x_m = pxToM(x);
@@ -490,7 +464,6 @@ function drawCortante(Ray, Rby, xA, xB) {
 
 function drawMomento(Ray, Rby, xA, xB, vVals) {
     let baselineM = vigaY + 480; 
-    let anchoUtil = width - 2 * margenH;
     let vals = [];
 
     for(let x = margenH; x <= width - margenH; x += 2) {
@@ -520,14 +493,12 @@ function drawMomento(Ray, Rby, xA, xB, vVals) {
         vals.push(m);
     }
     
-    // --- NUEVO: CAPTURA DE DATOS PARA EL TUTOR ---
     if (vals.length > 0) {
         let absVals = vals.map(Math.abs);
         let indiceMax = absVals.indexOf(Math.max(...absVals));
-        momentoMax = vals[indiceMax]; // Guardamos el valor real (con signo)
-        xMmax = pxToM(margenH + indiceMax * 2); // Guardamos la posición en metros
+        momentoMax = vals[indiceMax];
+        xMmax = pxToM(margenH + indiceMax * 2);
     }
-    // --------------------------------------------
     
     let extraPoints = [];
     for(let i=1; i < vVals.length; i++) {
@@ -569,21 +540,11 @@ function dibujarDiagrama(yBase, datos, titulo, col, extraX = []) {
 }
 
 function touchEnded() { dragging = null; }
-//function doubleClicked() {
-   // let anchoUtil = width - 2 * margenH;
-   // apoyos.forEach(ap => { 
-	//if (dist(mouseX, mouseY, margenH + ap.x_rel * anchoUtil, vigaY) < 50) {
-       // ap.tipo = ap.tipo === 'fijo' ? 'movil' : 'fijo';
-   // }
-	//});
-//}
-// Registro del Service Worker para modo Offline
 
 function generarInformeRatificador() {
     const informeDiv = document.getElementById('contenedor-informe');
     const cuerpo = document.getElementById('cuerpo-informe');
     
-    // Hace aparecer el cuadro blanco
     informeDiv.style.display = 'block';
 
     let xA = apoyos[0].x_rel * vigaLongitudM;
@@ -594,7 +555,6 @@ function generarInformeRatificador() {
     texto += `➤ Momento Máximo: ${momentoMax.toFixed(1)} Nm (en x = ${xMmax.toFixed(2)}m)\n\n`;
 
     texto += "🧶 **2. ANÁLISIS DE LAS FIBRAS (Física):**\n";
-    // Detectamos si el peligro está en el voladizo o en el centro
     if (xMmax < Math.min(xA, xB) || xMmax > Math.max(xA, xB)) {
         texto += "⚠️ **ALERTA DE VOLADIZO:** El esfuerzo máximo está FUERA de los apoyos.\n";
         texto += "👉 La viga arquea hacia ARRIBA. Las fibras SUPERIORES sufren TRACCIÓN (se estiran).\n";
@@ -604,33 +564,30 @@ function generarInformeRatificador() {
         texto += "👉 La viga se 'empanza'. Las fibras de ABAJO sufren TRACCIÓN.\n\n";
     }
 
-    
-
-    // Diagnóstico de Seguridad L/300 (Para un IPN 100 de acero)
     let fMax = (Math.abs(momentoMax) * Math.pow(vigaLongitudM, 2)) / (9.6 * 210e9 * 171e-8) * 1000;
     let limite = (vigaLongitudM * 1000) / 300;
 
-    texto += "🛡️ **3. DIAGNÓSTICO DE SEGURIDAD:**\n";
+    texto += "🛡️️ **3. DIAGNÓSTICO DE SEGURIDAD:**\n";
     if (fMax > limite) {
         texto += `❌ FALLA: La flecha (${fMax.toFixed(2)}mm) supera el límite de ${limite.toFixed(2)}mm.\n`;
         texto += "💡 CONSEJO: El perfil es muy 'flaco'. Probá con un IPN más alto.";
-        informeDiv.style.borderLeft = "10px solid #e74c3c"; // Borde Rojo
+        informeDiv.style.borderLeft = "10px solid #e74c3c";
     } else {
         texto += `✅ SEGURA: La deformación (${fMax.toFixed(2)}mm) es aceptable.`;
-        informeDiv.style.borderLeft = "10px solid #2ecc71"; // Borde Verde
+        informeDiv.style.borderLeft = "10px solid #2ecc71";
     }
 
     cuerpo.innerHTML = texto;
     informeDiv.scrollIntoView({ behavior: 'smooth' });
 }
 
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('Service Worker activo', reg))
-                .catch(err => console.log('Error al registrar SW', err));
-        });
-    }
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('Service Worker activo', reg))
+            .catch(err => console.log('Error al registrar SW', err));
+    });
+}
 </script>
 </body>
 </html>
